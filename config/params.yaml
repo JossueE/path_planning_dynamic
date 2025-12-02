@@ -1,0 +1,64 @@
+path_planning_node:
+  ros__parameters:
+    maxSteerAngle: 0.1
+    wheelBase: 0.08
+    axleToFront: 0.1
+    axleToBack: 0.15
+    width: 0.17
+    pathLength: 1 # meters
+    step_car: 0.5 # meters
+    tree_depth: 5 # depth of the tree for path planning
+    branching_factor: 5
+    map_path: "/home/snorlix/Downloads/depot_lanelet2_map(1).osm"
+    start_lanelet_id: 9928
+    end_lanelet_id: 7702
+    x_offset: 0.0
+    y_offset: 0.0
+    num_lateral_offsets: 0
+    global_planner_resolution: 0.2
+    global_planner_close_radius: 1
+    global_planner_close_iters: 1
+    global_planner_outside_value: 100
+    global_planner_frame_id: "map"
+    global_planner_occupancy_output_topic: "global_planner_occupancy_grid"
+
+pointcloud_clustering_node:
+  ros__parameters:
+    GROUND_THRESHOLD: 0.1
+    CLUSTER_THRESH: 0.3
+    CLUSTER_MAX_SIZE: 6000
+    CLUSTER_MIN_SIZE: 3
+    USE_PCA_BOX: false
+    DISPLACEMENT_THRESH: 0.5
+    IOU_THRESH: 0.7
+    USE_TRACKING: true
+
+pointcloud_roi_node:
+  ros__parameters:
+    pointcloud_topic: "/lidar/points_ign"
+    output_topic: "/points_rotated"
+    output_topic_ground: "/points_rotated_notground"
+    sensor_rotation_y_: 0.0 #0.20944 #0.174533
+    voxel_condition: true
+    roi_max_x_: 10.0 # hacia adelante
+    roi_max_y_: 3.0 # a los lados
+    roi_max_z_: 1.5 # hacia arriba
+    roi_min_x_: -1.0 # hacia atras
+    roi_min_y_: -3.0 # a los lados
+    roi_min_z_: -0.2 # hacia abajo
+    voxel_leaf_size_x: 0.1
+    voxel_leaf_size_y: 0.1
+    voxel_leaf_size_z: 0.1
+    num_seg_: 25
+    num_iter_: 15
+    num_lpr_: 400
+    th_seeds_: 0.3
+    th_dist_: 0.3
+    sensor_height_: 0.25
+    robot_footprint_x_max: 0.11
+    robot_footprint_y_max: 0.1
+    robot_footprint_z_max: 0.06
+    robot_footprint_x_min: -0.1
+    robot_footprint_y_min: -0.1
+    robot_footprint_z_min: -0.1
+    robot_footprint_topic: "/robot_footprint_polygon"
