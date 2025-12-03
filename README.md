@@ -19,9 +19,9 @@ This ROS 2 package implements a complete dynamic path planning pipeline through 
 </p>  
 
 > [!IMPORTANT]
-> This repository is based on the work of Armando Genis in [navpilot-framework](https://github.com/armando-genis/navpilot-framework).
-> **Contact email:** armando_genis@outlook.com
-> **GitHub:** https://github.com/armando-genis
+> This repository is forked from the work of Armando Genis in [navpilot-framework](https://github.com/armando-genis/navpilot-framework).
+>  - **Contact email:** armando_genis@outlook.com
+>  - **GitHub:** https://github.com/armando-genis
 
 ## 📚 Table of Contents
 - [Installation](#installation)
