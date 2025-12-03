@@ -35,7 +35,6 @@ This ROS 2 package implements a complete dynamic path planning pipeline through 
     - [Considerations for Creating HD Maps with Vector Map Builder (.oms)](#considerations-for-creating-hd-maps-with-vector-map-builder-oms)
 
 - [Usage](#usage)
-    - 
 
 
 ---
