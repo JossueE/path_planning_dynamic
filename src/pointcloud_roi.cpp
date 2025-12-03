@@ -18,6 +18,7 @@ pointcloud_roi_node::pointcloud_roi_node(/* args */) : Node("pointcloud_roi_node
     this->get_parameter("th_dist_", th_dist_);
     this->get_parameter("sensor_height_", sensor_height_);
 
+
     // ==================  variables for pointcloud voxel  ==================
     this->declare_parameter("voxel_leaf_size_x", double(0.0));
     this->declare_parameter("voxel_leaf_size_y", double(0.0));
@@ -38,6 +39,12 @@ pointcloud_roi_node::pointcloud_roi_node(/* args */) : Node("pointcloud_roi_node
     this->declare_parameter("roi_min_x_", double(0.0));
     this->declare_parameter("roi_min_y_", double(0.0));
     this->declare_parameter("roi_min_z_", double(0.0));
+
+    this->declare_parameter("name_space", std::string("robot_footprint"));
+    this->declare_parameter("frame_id", std::string("base_link"));
+
+    this->get_parameter("name_space", name_space);
+    this->get_parameter("frame_id", frame_id);
 
     this->get_parameter("roi_max_x_", roi_max_x_);
     this->get_parameter("roi_max_y_", roi_max_y_);
@@ -60,8 +67,7 @@ pointcloud_roi_node::pointcloud_roi_node(/* args */) : Node("pointcloud_roi_node
     this->get_parameter("pointcloud_topic", pointcloud_topic);
     this->get_parameter("output_topic", output_topic);
     this->get_parameter("output_topic_ground", output_topic_ground);
-    
-    std::string robot_footprint_topic;
+
     this->get_parameter("robot_footprint_topic", robot_footprint_topic);
 
     // ============== variables for robot footprint  ==============
@@ -277,10 +283,10 @@ visualization_msgs::msg::Marker pointcloud_roi_node::createRobotFootprintMarker(
     
     // Set header
     marker.header.stamp = this->now();
-    marker.header.frame_id = "base_link";
+    marker.header.frame_id = frame_id;
     
     // Set marker properties
-    marker.ns = "robot_footprint";
+    marker.ns = name_space;
     marker.id = 0;
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;

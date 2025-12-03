@@ -43,6 +43,7 @@ private:
     double DISPLACEMENT_THRESH;
     double IOU_THRESH;
     bool USE_TRACKING;
+    std::string FRAME_ID;
 
     std::shared_ptr<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>> obstacle_detector;
     path_planning_dynamic::msg::ObstacleCollection obstacle_collection;
@@ -50,6 +51,7 @@ private:
     // Point Cloud callback
     void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_clusters);
+    void imaginaryObstacle();
 
     // subscriber & publisher
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_points_cloud_;

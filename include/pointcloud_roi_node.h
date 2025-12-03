@@ -82,7 +82,10 @@ private:
     std::string pointcloud_topic = "none";
     std::string output_topic = "none";
     std::string output_topic_ground = "none";
-
+    std::string name_space;
+    std::string frame_id;
+    std::string robot_footprint_topic;
+    
     Eigen::Vector4f ROI_MAX_POINT, ROI_MIN_POINT;
 
     // ==============  variables for pointcloud rotation  ==============

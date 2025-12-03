@@ -1,64 +1,67 @@
 path_planning_node:
   ros__parameters:
-    maxSteerAngle: 0.1
-    wheelBase: 0.08
-    axleToFront: 0.1
-    axleToBack: 0.15
-    width: 0.17
-    pathLength: 1 # meters
-    step_car: 0.5 # meters
-    tree_depth: 5 # depth of the tree for path planning
-    branching_factor: 5
-    map_path: "/home/snorlix/Downloads/depot_lanelet2_map(1).osm"
-    start_lanelet_id: 9928
-    end_lanelet_id: 7702
-    x_offset: 0.0
-    y_offset: 0.0
-    num_lateral_offsets: 0
-    global_planner_resolution: 0.2
-    global_planner_close_radius: 1
-    global_planner_close_iters: 1
-    global_planner_outside_value: 100
-    global_planner_frame_id: "map"
-    global_planner_occupancy_output_topic: "global_planner_occupancy_grid"
+    maxSteerAngle: 0.1                # Maximum steering angle of the wheels (rad). Limits path curvature.
+    wheelBase: 0.08                   # Distance between front and rear axle (m). Affects vehicle kinematics
+    axleToFront: 0.1                  # Distance from rear axle to the front of the vehicle (m).
+    axleToBack: 0.15                  # Distance from rear axle to the rear end of the vehicle (m).
+    width: 0.17                       # Total vehicle width (m).
+    pathLength: 1                     # Path length to generate (m).
+    step_car: 0.5                     # Distance between consecutive vehicle samples along the path (m). 
+    tree_depth: 5                     # Maximum depth of the A* search tree for local path planning.
+    branching_factor: 5               # Number of possible branches (actions/commands) per tree level.
+    map_path: "/home/snorlix/Downloads/depot_lanelet2_map(1).osm" # Path to the Lanelet2 (.osm) map file.
+    start_lanelet_id: 7702            # ID of the starting lanelet for the global planner.
+    end_lanelet_id: 9928              # ID of the goal lanelet for the global planner.
+    x_offset: 0.0                     # X offset to align map and robot frame (m).
+    y_offset: 0.0                     # Y offset to align map and robot frame (m).
+    num_lateral_offsets: 0            # Number of lateral offsets to generate alternative lanes (0 = only center lane).
+    global_planner_resolution: 0.2         # Resolution of the global planner grid (m).
+    global_planner_close_radius: 1         # Radius around the robot to consider as "close" for the global planner (m).
+    global_planner_close_iters: 1          # Number of iterations for close-range global planning.
+    global_planner_outside_value: 100      # Cost value for outside the drivable area in the global planner.
+    global_planner_frame_id: "map"         # Frame ID for the global planner occupancy grid.
+    global_planner_occupancy_output_topic: "global_planner_occupancy_grid" # Topic to publish the occupancy grid.
 
 pointcloud_clustering_node:
   ros__parameters:
-    GROUND_THRESHOLD: 0.1
-    CLUSTER_THRESH: 0.3
-    CLUSTER_MAX_SIZE: 6000
-    CLUSTER_MIN_SIZE: 3
-    USE_PCA_BOX: false
-    DISPLACEMENT_THRESH: 0.5
-    IOU_THRESH: 0.7
-    USE_TRACKING: true
+    GROUND_THRESHOLD: 0.1        # Threshold for separating ground vs non-ground points (height or z value).
+    CLUSTER_THRESH: 0.3          # Maximum distance between points to belong to the same cluster (m).
+    CLUSTER_MAX_SIZE: 6000       # Maximum allowed number of points in a cluster (filters overly large objects).
+    CLUSTER_MIN_SIZE: 100        # Minimum number of points to consider a valid cluster (filters noise).
+    USE_PCA_BOX: false           # If true, use PCA to fit an oriented bounding box to clusters.
+    DISPLACEMENT_THRESH: 0.5     # Maximum allowed displacement between consecutive detections for tracking (m).
+    IOU_THRESH: 0.7              # IoU threshold to associate clusters across frames (for object tracking).
+    USE_TRACKING: true           # If true, enable temporal tracking of detected clusters/objects.
+    FRAME_ID : "base_link"       # Reference frame for published clustering results.
 
 pointcloud_roi_node:
   ros__parameters:
-    pointcloud_topic: "/lidar/points_ign"
-    output_topic: "/points_rotated"
-    output_topic_ground: "/points_rotated_notground"
-    sensor_rotation_y_: 0.0 #0.20944 #0.174533
-    voxel_condition: true
-    roi_max_x_: 10.0 # hacia adelante
-    roi_max_y_: 3.0 # a los lados
-    roi_max_z_: 1.5 # hacia arriba
-    roi_min_x_: -1.0 # hacia atras
-    roi_min_y_: -3.0 # a los lados
-    roi_min_z_: -0.2 # hacia abajo
-    voxel_leaf_size_x: 0.1
-    voxel_leaf_size_y: 0.1
-    voxel_leaf_size_z: 0.1
-    num_seg_: 25
-    num_iter_: 15
-    num_lpr_: 400
-    th_seeds_: 0.3
-    th_dist_: 0.3
-    sensor_height_: 0.25
-    robot_footprint_x_max: 0.11
-    robot_footprint_y_max: 0.1
-    robot_footprint_z_max: 0.06
-    robot_footprint_x_min: -0.1
-    robot_footprint_y_min: -0.1
-    robot_footprint_z_min: -0.1
-    robot_footprint_topic: "/robot_footprint_polygon"
+    name_space: "robot_footprint"        # Namespace for topics/objects related to the robot footprint.
+    frame_id: "base_link"                # Frame in which ROI and footprint are defined.
+    pointcloud_topic: "/lidar/points_ign"         # Input topic of the raw LiDAR point cloud.
+    output_topic: "/points_rotated"               # Output topic for filtered/rotated point cloud (full ROI).
+    output_topic_ground: "/points_rotated_notground"  # Output topic for non-ground points.
+    sensor_rotation_y_: 0.0              # Sensor rotation around Y axis (rad). Compensates LiDAR tilt.
+    voxel_condition: true                # If true, apply voxel grid downsampling.
+    roi_max_x_: 10.0                     # ROI max X limit (m, forward).
+    roi_max_y_: 3.0                      # ROI max Y limit (m, sideways).
+    roi_max_z_: 1.5                      # ROI max Z limit (m, upward).
+    roi_min_x_: -1.0                     # ROI min X limit (m, backward).
+    roi_min_y_: -3.0                     # ROI min Y limit (m, sideways opposite).
+    roi_min_z_: -0.2                     # ROI min Z limit (m, downward).
+    voxel_leaf_size_x: 0.1               # Voxel grid leaf size in X (m).
+    voxel_leaf_size_y: 0.1               # Voxel grid leaf size in Y (m).
+    voxel_leaf_size_z: 0.1               # Voxel grid leaf size in Z (m).
+    num_seg_: 25                         # Number of segments used in ground segmentation algorithm.
+    num_iter_: 15                        # Number of iterations for ground plane fitting (e.g., RANSAC).
+    num_lpr_: 400                        # Number of lowest points used as initial ground seeds (LPR).
+    th_seeds_: 0.3                       # Height threshold for selecting ground seed points.
+    th_dist_: 0.3                        # Distance threshold to the plane to classify a point as ground (m).
+    sensor_height_: 0.25                 # Sensor height above the ground (m).
+    robot_footprint_x_max: 0.11          # Robot footprint max X (forward extent, m).
+    robot_footprint_y_max: 0.1           # Robot footprint max Y (lateral extent, m).
+    robot_footprint_z_max: 0.06          # Robot footprint max Z (upward extent, m).
+    robot_footprint_x_min: -0.1          # Robot footprint min X (backward extent, m).
+    robot_footprint_y_min: -0.1          # Robot footprint min Y (opposite lateral extent, m).
+    robot_footprint_z_min: -0.1          # Robot footprint min Z (downward extent, m).
+    robot_footprint_topic: "/robot_footprint_polygon"  # Topic where the robot footprint polygon is published.

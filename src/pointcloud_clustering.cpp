@@ -11,6 +11,7 @@ pointcloud_clustering_node::pointcloud_clustering_node(/* args */) : Node("point
     this->declare_parameter("DISPLACEMENT_THRESH", 0.0);
     this->declare_parameter("IOU_THRESH", 0.0);
     this->declare_parameter("USE_TRACKING", false);
+    this->declare_parameter("FRAME_ID", std::string("base_link"));
 
     // Get parameters
     this->get_parameter("GROUND_THRESHOLD", GROUND_THRESHOLD);
@@ -21,6 +22,7 @@ pointcloud_clustering_node::pointcloud_clustering_node(/* args */) : Node("point
     this->get_parameter("DISPLACEMENT_THRESH", DISPLACEMENT_THRESH);
     this->get_parameter("IOU_THRESH", IOU_THRESH);
     this->get_parameter("USE_TRACKING", USE_TRACKING);
+    this->get_parameter("FRAME_ID", FRAME_ID);
 
     // Create subscriber
     sub_points_cloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/points_rotated_notground", 10, std::bind(&pointcloud_clustering_node::pointCloudCallback, this, std::placeholders::_1));
@@ -56,6 +58,7 @@ void pointcloud_clustering_node::pointCloudCallback(const sensor_msgs::msg::Poin
     if (input_cloud->empty())
     {
         std::cout << red << "Received empty point cloud" << reset << std::endl;
+        imaginaryObstacle();
         return;
     }
     //std::cout << red << "NOT Received empty point cloud" << reset << std::endl;
@@ -70,7 +73,11 @@ void pointcloud_clustering_node::pointCloudCallback(const sensor_msgs::msg::Poin
             std::cout << green << "Number of clusters: " << clusters.size() << reset << std::endl;
             convex_hull(clusters);
         }
-        std::cout << red << "NOT avaliable clusters, check the values" << reset << std::endl;
+        else {
+            std::cout << red << "NOT avaliable clusters, check the values" << reset << std::endl;
+            imaginaryObstacle();
+        }
+        
     }
     catch (const std::exception &e)
     {
@@ -80,12 +87,12 @@ void pointcloud_clustering_node::pointCloudCallback(const sensor_msgs::msg::Poin
 
 void pointcloud_clustering_node::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_clusters)
 {
-    
+
     visualization_msgs::msg::MarkerArray hull_markers;
     obstacle_collection.obstacles.clear();
 
     obstacle_collection.header.stamp = rclcpp::Clock{}.now();
-    obstacle_collection.header.frame_id = "base_link";
+    obstacle_collection.header.frame_id = FRAME_ID;
 
     int index = 0; // Declare an index variable
     for (auto &cluster : cloud_clusters)
@@ -134,7 +141,7 @@ void pointcloud_clustering_node::convex_hull(std::vector<pcl::PointCloud<pcl::Po
 
             // Create a marker for the convex hull
             // visualization_msgs::msg::Marker hull_marker;
-            // hull_marker.header.frame_id = "base_link";
+            // hull_marker.header.frame_id = FRAME_ID;
             // hull_marker.header.stamp = this->now();
             // hull_marker.ns = "hull";
             // hull_marker.id = index;
@@ -161,7 +168,40 @@ void pointcloud_clustering_node::convex_hull(std::vector<pcl::PointCloud<pcl::Po
         std::cout << yellow << "Obstacle collection size: " << obstacle_collection.obstacles.size() << reset << std::endl;
         obstacle_info_publisher_->publish(obstacle_collection);
     }
+    else
+    {
+        imaginaryObstacle();
+    }
 }
+
+void pointcloud_clustering_node::imaginaryObstacle()
+{
+    // This function can be implemented to create imaginary obstacles for convenience
+    // > If clustering dont detect any obstacle, this function can create a static obstacle far from the robot
+    // > Or is useful if pointcloud is empty
+    obstacle_collection.obstacles.clear();
+    obstacle_collection.header.stamp = rclcpp::Clock{}.now();
+    obstacle_collection.header.frame_id = "base_link";
+
+    path_planning_dynamic::msg::Obstacle obstacle;
+    geometry_msgs::msg::Polygon polygon;
+    geometry_msgs::msg::Point32 p;
+    p.x = 5000.0;  // <--- 5km in front of the robot
+    p.y = 0.0;
+    p.z = 0.0;
+    polygon.points.push_back(p);
+    obstacle.polygon = polygon;
+    obstacle.id = 1;
+    obstacle.type = "NONE";
+    
+    // Add the imaginary obstacle to the collection
+    obstacle_collection.obstacles.push_back(obstacle);
+    std::cout << yellow << "Imaginary Obstacle published " << reset << std::endl;
+    obstacle_info_publisher_->publish(obstacle_collection);
+
+}
+
+
 
 int main(int argc, char **argv)
 {
