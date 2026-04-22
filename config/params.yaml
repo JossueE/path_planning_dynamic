@@ -9,7 +9,7 @@ path_planning_node:
     step_car: 0.5                     # Distance between consecutive vehicle samples along the path (m). 
     tree_depth: 5                     # Maximum depth of the A* search tree for local path planning.
     branching_factor: 5               # Number of possible branches (actions/commands) per tree level.
-    map_path: "/home/snorlix/colcon_ws/src/autonomous_robot_simulation/autonomous_robot_simulation/utils/depot_lanelet2_map.osm" # Path to the Lanelet2 (.osm) map file.
+    map_path: package://autonomous_robot_simulation/utils/depot_lanelet2_map.osm # Path to the Lanelet2 (.osm) map file.
     start_lanelet_id: 7702            # ID of the starting lanelet for the global planner.
     end_lanelet_id: 9928              # ID of the goal lanelet for the global planner.
     x_offset: 0.0                     # X offset to align map and robot frame (m).
@@ -20,7 +20,7 @@ path_planning_node:
     global_planner_close_iters: 1          # Number of iterations for close-range global planning.
     global_planner_outside_value: 100      # Cost value for outside the drivable area in the global planner.
     global_planner_frame_id: "map"         # Frame ID for the global planner occupancy grid.
-    global_planner_occupancy_output_topic: "global_planner_occupancy_grid" # Topic to publish the occupancy grid.
+    global_planner_occupancy_output_topic: "/global_planner_occupancy_grid" # Topic to publish the occupancy grid.
 
 pointcloud_clustering_node:
   ros__parameters:
