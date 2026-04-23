@@ -5,17 +5,17 @@ path_planning_node:
     axleToFront: 0.1                  # Distance from rear axle to the front of the vehicle (m).
     axleToBack: 0.15                  # Distance from rear axle to the rear end of the vehicle (m).
     width: 0.17                       # Total vehicle width (m).
-    pathLength: 1                     # Path length to generate (m).
-    step_car: 0.5                     # Distance between consecutive vehicle samples along the path (m). 
+    pathLength: 4                     # Path length to generate (m).
+    step_car: 0.05                     # Distance between consecutive vehicle samples along the path (m). 
     tree_depth: 5                     # Maximum depth of the A* search tree for local path planning.
     branching_factor: 5               # Number of possible branches (actions/commands) per tree level.
-    map_path: package://autonomous_robot_simulation/utils/depot_lanelet2_map.osm # Path to the Lanelet2 (.osm) map file.
-    start_lanelet_id: 7702            # ID of the starting lanelet for the global planner.
-    end_lanelet_id: 9928              # ID of the goal lanelet for the global planner.
+    map_path: package://autonomous_robot_simulation/utils/test.osm # Path to the Lanelet2 (.osm) map file.
+    start_lanelet_id: 1379            # ID of the starting lanelet for the global planner.
+    end_lanelet_id: 1335              # ID of the goal lanelet for the global planner.
     x_offset: 0.0                     # X offset to align map and robot frame (m).
     y_offset: 0.0                     # Y offset to align map and robot frame (m).
     num_lateral_offsets: 0            # Number of lateral offsets to generate alternative lanes (0 = only center lane).
-    global_planner_resolution: 0.2         # Resolution of the global planner grid (m).
+    global_planner_resolution: 0.3         # Resolution of the global planner grid (m).
     global_planner_close_radius: 1         # Radius around the robot to consider as "close" for the global planner (m).
     global_planner_close_iters: 1          # Number of iterations for close-range global planning.
     global_planner_outside_value: 100      # Cost value for outside the drivable area in the global planner.
@@ -25,9 +25,9 @@ path_planning_node:
 pointcloud_clustering_node:
   ros__parameters:
     GROUND_THRESHOLD: 0.1        # Threshold for separating ground vs non-ground points (height or z value).
-    CLUSTER_THRESH: 0.3          # Maximum distance between points to belong to the same cluster (m).
+    CLUSTER_THRESH: 0.15          # Maximum distance between points to belong to the same cluster (m).
     CLUSTER_MAX_SIZE: 6000       # Maximum allowed number of points in a cluster (filters overly large objects).
-    CLUSTER_MIN_SIZE: 100        # Minimum number of points to consider a valid cluster (filters noise).
+    CLUSTER_MIN_SIZE: 30        # Minimum number of points to consider a valid cluster (filters noise).
     USE_PCA_BOX: false           # If true, use PCA to fit an oriented bounding box to clusters.
     DISPLACEMENT_THRESH: 0.5     # Maximum allowed displacement between consecutive detections for tracking (m).
     IOU_THRESH: 0.7              # IoU threshold to associate clusters across frames (for object tracking).
@@ -57,7 +57,7 @@ pointcloud_roi_node:
     num_lpr_: 400                        # Number of lowest points used as initial ground seeds (LPR).
     th_seeds_: 0.3                       # Height threshold for selecting ground seed points.
     th_dist_: 0.3                        # Distance threshold to the plane to classify a point as ground (m).
-    sensor_height_: 0.25                 # Sensor height above the ground (m).
+    sensor_height_: 0.08                 # Sensor height above the ground (m).
     robot_footprint_x_max: 0.11          # Robot footprint max X (forward extent, m).
     robot_footprint_y_max: 0.1           # Robot footprint max Y (lateral extent, m).
     robot_footprint_z_max: 0.06          # Robot footprint max Z (upward extent, m).
