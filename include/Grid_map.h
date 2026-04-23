@@ -4,7 +4,7 @@
 #include <grid_map_core/grid_map_core.hpp>
 #include <opencv2/opencv.hpp>
 #include <grid_map_cv/grid_map_cv.hpp>
-#include "CarData.h"
+#include "vehicle_footprint.hpp"
 #include <Eigen/Dense>
 #include <iostream>
 // #include "eigen2cv.hpp"
@@ -46,7 +46,7 @@ private:
     // list of index of new vacant grid
     vector<int> new_vacancy_list_;
 
-    CarData car_data_;
+    VehicleFootprint vehicle_footprint_;
 
     // colors for the terminal
     string green = "\033[1;32m";
@@ -96,7 +96,7 @@ public:
     bool checkCollision(const State &state, const geometry_msgs::msg::Polygon &vehicle_poly_state);
 
     // ===================== NEW METHOD =====================
-    void setcarData(CarData car_data);
+    void setVehicleFootprint(const VehicleFootprint &vehicle_footprint);
     double getObstacleDistance(const Eigen::Vector2d &pos) const;
     bool isInside(const Eigen::Vector2d &pos) const;
     bool isSingleStateCollisionFree(const State &current);

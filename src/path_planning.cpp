@@ -1,7 +1,41 @@
 #include <path_planning.hpp>
 
+#include <cctype>
+
+namespace {
+
+double selectConfiguredDouble(const double preferred, const double legacy) {
+    return preferred > 0.0 ? preferred : legacy;
+}
+
+int selectConfiguredInt(const int preferred, const int legacy) {
+    return preferred > 0 ? preferred : legacy;
+}
+
+std::string normalizeModelName(std::string model_name) {
+    std::transform(model_name.begin(), model_name.end(), model_name.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return model_name;
+}
+
+} // namespace
+
 path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clock()), tf2_listener(tf2_buffer)
 {
+    this->declare_parameter<std::string>("kinematics.model", "ackermann");
+    this->declare_parameter<double>("vehicle.axle_to_front", 0.0);
+    this->declare_parameter<double>("vehicle.axle_to_back", 0.0);
+    this->declare_parameter<double>("vehicle.width", 0.0);
+    this->declare_parameter<int>("planner.segment_steps", 0);
+    this->declare_parameter<double>("planner.sample_distance", 0.0);
+    this->declare_parameter<int>("planner.branching_factor", 0);
+    this->declare_parameter<double>("ackermann.wheelbase", 0.0);
+    this->declare_parameter<double>("ackermann.max_steering_angle", 0.0);
+    this->declare_parameter<double>("differential.linear_step", 0.0);
+    this->declare_parameter<double>("differential.max_angular_step", 0.2);
+    this->declare_parameter<int>("differential.angular_samples", 0);
+    this->declare_parameter<bool>("differential.include_in_place_rotation", true);
+
     this->declare_parameter<double>("maxSteerAngle", 0.0);
     this->declare_parameter<double>("wheelBase", 0.0);
     this->declare_parameter<double>("axleToFront", 0.0);
@@ -25,20 +59,70 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     this->declare_parameter<std::string>("global_planner_frame_id", "map");
     this->declare_parameter<std::string>("global_planner_occupancy_output_topic", "occupancy_grid_complete_map");
 
-    this->get_parameter("maxSteerAngle", maxSteerAngle);
-    this->get_parameter("wheelBase", wheelBase);
-    this->get_parameter("axleToFront", axleToFront);
-    this->get_parameter("axleToBack", axleToBack);
-    this->get_parameter("width", width);
-    this->get_parameter("pathLength", pathLength);
-    this->get_parameter("step_car", step_car);
+    std::string configured_model;
+    double vehicle_axle_to_front = 0.0;
+    double vehicle_axle_to_back = 0.0;
+    double vehicle_width = 0.0;
+    int configured_segment_steps = 0;
+    double configured_sample_distance = 0.0;
+    int configured_branching_factor = 0;
+    double configured_ackermann_wheelbase = 0.0;
+    double configured_ackermann_max_steering_angle = 0.0;
+
+    this->get_parameter("kinematics.model", configured_model);
+    this->get_parameter("vehicle.axle_to_front", vehicle_axle_to_front);
+    this->get_parameter("vehicle.axle_to_back", vehicle_axle_to_back);
+    this->get_parameter("vehicle.width", vehicle_width);
+    this->get_parameter("planner.segment_steps", configured_segment_steps);
+    this->get_parameter("planner.sample_distance", configured_sample_distance);
+    this->get_parameter("planner.branching_factor", configured_branching_factor);
+    this->get_parameter("ackermann.wheelbase", configured_ackermann_wheelbase);
+    this->get_parameter("ackermann.max_steering_angle", configured_ackermann_max_steering_angle);
+    this->get_parameter("differential.linear_step", differential_linear_step_);
+    this->get_parameter("differential.max_angular_step", differential_max_angular_step_);
+    this->get_parameter("differential.angular_samples", differential_angular_samples_);
+    this->get_parameter("differential.include_in_place_rotation", differential_include_in_place_rotation_);
+
+    double legacy_max_steer_angle = 0.0;
+    double legacy_wheelbase = 0.0;
+    double legacy_axle_to_front = 0.0;
+    double legacy_axle_to_back = 0.0;
+    double legacy_width = 0.0;
+    int legacy_path_length = 0;
+    double legacy_step_car = 0.0;
+    int legacy_branching_factor = 0;
+
+    this->get_parameter("maxSteerAngle", legacy_max_steer_angle);
+    this->get_parameter("wheelBase", legacy_wheelbase);
+    this->get_parameter("axleToFront", legacy_axle_to_front);
+    this->get_parameter("axleToBack", legacy_axle_to_back);
+    this->get_parameter("width", legacy_width);
+    this->get_parameter("pathLength", legacy_path_length);
+    this->get_parameter("step_car", legacy_step_car);
     this->get_parameter("tree_depth", tree_depth);
-    this->get_parameter("branching_factor", branching_factor);
+    this->get_parameter("branching_factor", legacy_branching_factor);
     this->get_parameter("map_path", map_path_);
     this->get_parameter("x_offset", x_offset_);
     this->get_parameter("y_offset", y_offset_);
     this->get_parameter("start_lanelet_id", start_lanelet_id_);
     this->get_parameter("end_lanelet_id", end_lanelet_id_);
+
+    kinematic_model_name_ = normalizeModelName(configured_model);
+    axle_to_front_ = selectConfiguredDouble(vehicle_axle_to_front, legacy_axle_to_front);
+    axle_to_back_ = selectConfiguredDouble(vehicle_axle_to_back, legacy_axle_to_back);
+    vehicle_width_ = selectConfiguredDouble(vehicle_width, legacy_width);
+    pathLength = selectConfiguredInt(configured_segment_steps, legacy_path_length);
+    step_car = selectConfiguredDouble(configured_sample_distance, legacy_step_car);
+    branching_factor = selectConfiguredInt(configured_branching_factor, legacy_branching_factor);
+    ackermann_wheelbase_ = selectConfiguredDouble(configured_ackermann_wheelbase, legacy_wheelbase);
+    ackermann_max_steering_angle_ =
+        selectConfiguredDouble(configured_ackermann_max_steering_angle, legacy_max_steer_angle);
+    if (differential_linear_step_ <= 0.0) {
+        differential_linear_step_ = step_car;
+    }
+    if (differential_angular_samples_ <= 0) {
+        differential_angular_samples_ = branching_factor;
+    }
 
     // Occupancy grid parameters
     this->get_parameter("global_planner_resolution", global_planner_resolution_);
@@ -81,24 +165,39 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     rescaled_chunk_ = std::make_shared<nav_msgs::msg::OccupancyGrid>();
     car_state_ = std::make_shared<State>();
     grid_map_ = nullptr;
-    current_node = nullptr;
     global_planner_ = std::make_shared<GlobalPlanner>(x_offset_, y_offset_, map_path_, start_lanelet_id_, end_lanelet_id_, global_planner_resolution_, global_planner_close_radius_, global_planner_close_iters_, global_planner_outside_value_, global_planner_frame_id_);
 
-    // Create the vehicle geometry
-    car_data_ = CarData(maxSteerAngle, wheelBase, axleToFront, axleToBack, width);
-    car_data_.createVehicleGeometry();
+    vehicle_footprint_.setDimensions(axle_to_front_, axle_to_back_, vehicle_width_);
+    AckermannKinematicsConfig ackermann_config;
+    ackermann_config.wheelbase = ackermann_wheelbase_;
+    ackermann_config.max_steering_angle = ackermann_max_steering_angle_;
+    ackermann_config.linear_step = step_car;
 
-    auto markers = car_data_.toMarkerArray("base_footprint", this->get_clock()->now());
+    DifferentialKinematicsConfig differential_config;
+    differential_config.linear_step = differential_linear_step_;
+    differential_config.max_angular_step = differential_max_angular_step_;
+    differential_config.moving_angular_samples = differential_angular_samples_;
+    differential_config.include_in_place_rotation = differential_include_in_place_rotation_;
+
+    kinematic_model_ =
+        makeKinematicModel(kinematic_model_name_, ackermann_config, differential_config);
+    motion_primitives_ = kinematic_model_->buildMotionPrimitives(branching_factor);
+
+    auto markers = vehicle_footprint_.toMarkerArray("base_footprint", this->get_clock()->now());
 
     car_analytics_->publish(markers);
 
 
     // log out parameters
-    RCLCPP_INFO(this->get_logger(), "\033[1;34mmaxSteerAngle: %f\033[0m", maxSteerAngle);
-    RCLCPP_INFO(this->get_logger(), "\033[1;34mwheelBase: %f\033[0m", wheelBase);
-    RCLCPP_INFO(this->get_logger(), "\033[1;34maxleToFront: %f\033[0m", axleToFront);
-    RCLCPP_INFO(this->get_logger(), "\033[1;34maxleToBack: %f\033[0m", axleToBack);
-    RCLCPP_INFO(this->get_logger(), "\033[1;34mwidth: %f\033[0m", width);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mkinematics.model: %s\033[0m", kinematic_model_name_.c_str());
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mackermann.max_steering_angle: %f\033[0m", ackermann_max_steering_angle_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mackermann.wheelbase: %f\033[0m", ackermann_wheelbase_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mvehicle.axle_to_front: %f\033[0m", axle_to_front_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mvehicle.axle_to_back: %f\033[0m", axle_to_back_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mvehicle.width: %f\033[0m", vehicle_width_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mdifferential.linear_step: %f\033[0m", differential_linear_step_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mdifferential.max_angular_step: %f\033[0m", differential_max_angular_step_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mdifferential.angular_samples: %d\033[0m", differential_angular_samples_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mpathLength: %d\033[0m", pathLength);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mstep_car: %f\033[0m", step_car);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mtree_depth: %d\033[0m", tree_depth);
@@ -109,9 +208,6 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     RCLCPP_INFO(this->get_logger(), "\033[1;34mstart_lanelet_id: %d\033[0m", start_lanelet_id_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mend_lanelet_id: %d\033[0m", end_lanelet_id_);
 
-    // get the motion commans
-    motionCommands();
-    precomputeCommandSamples();
     all_waypoints_from_global_planner_ = global_planner_->getAllAllWaypointsStruct();
     publishGlobalPlanner();
     if (global_planner_->isOccupancyGridReady())
@@ -144,10 +240,6 @@ void path_planning::getCurrentRobotState()
         double roll, pitch, yaw;
         tf2::Matrix3x3(quat).getRPY(roll, pitch, yaw);
         car_state_->heading = yaw;
-
-        // Create/refresh the current node with updated car state
-        vector<State> empty_trajectory = {*car_state_};
-        current_node = std::make_shared<planner::Node>(*car_state_, empty_trajectory, 0.0, 0.0, 1, std::weak_ptr<planner::Node>());
     }
 
     catch (tf2::TransformException &ex)
@@ -643,7 +735,7 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
     buildDistanceField();
     buildWaypointDistanceFields();
     grid_map_ = std::make_shared<Grid_map>(*rescaled_chunk_);
-    grid_map_->setcarData(car_data_);
+    grid_map_->setVehicleFootprint(vehicle_footprint_);
 
     // Publish the rescaled chunk
     if (occupancy_grid_pub_test_->get_subscription_count() > 0)
@@ -652,11 +744,11 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
     }
 
     // TreeFlat flat;
-    // int best = generateTrajectoryTree_AStar_flat_map(current_node->Current_state, flat);
+    // int best = generateTrajectoryTree_AStar_flat_map(*car_state_, flat);
     // publishBestPathFromFlat(flat, best, 1); // green color for the flat implementation
 
     TreeFlat flat_map;
-    int best_map = generateTrajectoryTree_AStar_flat_map_with_waypoints(current_node->Current_state, flat_map);
+    int best_map = generateTrajectoryTree_AStar_flat_map_with_waypoints(*car_state_, flat_map);
     publishBestPathFromFlat(flat_map, best_map, 2); // blue color for the A* implementation with waypoints
     publishAllPathsFromFlat(flat_map); // publish all available paths
     publishTrajectoryPath(flat_map, best_map); // publish chosen trajectory as nav_msgs::Path
@@ -668,543 +760,254 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
 }
 
   
-void path_planning::motionCommands()
-{
-    int direction = 1;
-    motionCommand.clear(); // Clear any existing commands
-    
-    // Generate motion commands based on branching_factor
-    if (branching_factor <= 0) return;
-    
-    if (branching_factor == 1)
-    {
-        // Only straight ahead
-        motionCommand.push_back({0.0, static_cast<double>(direction)});
-    }
-    else
-    {
-        // Distribute steering angles evenly across the range
-        double angle_step = (2.0 * car_data_.maxSteerAngle) / (branching_factor - 1);
-        
-        for (int i = 0; i < branching_factor; ++i)
-        {
-            double angle = -car_data_.maxSteerAngle + i * angle_step;
-            motionCommand.push_back({angle, static_cast<double>(direction)});
-            std::cout << green << "Steering angle: " << angle << " Direction: " << direction << reset << std::endl;
-        }
-    }
-}
-
-void path_planning::precomputeCommandSamples()
-{
-    precomputed_rel_.assign(motionCommand.size(), {});
-    for (size_t ci = 0; ci < motionCommand.size(); ++ci) {
-        const double steer = motionCommand[ci][0];
-        const int    dir   = static_cast<int>(motionCommand[ci][1]);
-
-        std::vector<RelSample> seq;
-        seq.reserve((size_t)pathLength);
-
-        // Build a canonical segment starting from the origin frame (0 pose)
-        State s; s.x = 0.0; s.y = 0.0; s.z = 0.0; s.heading = 0.0;
-        for (int k = 0; k < pathLength; ++k) {
-            s = car_data_.getVehicleStep(s, steer, dir, step_car);
-            seq.push_back(RelSample{ s.x, s.y, s.heading });
-        }
-        precomputed_rel_[ci] = std::move(seq);
-    }
-}
-
 // =============================
 // generate the trajectory based on the A* algorithm
 // =============================
 int path_planning::generateTrajectoryTree_AStar_flat_map(const State& root_state, TreeFlat& out)
 {
-    out.nodes.clear();
-    out.leaves.clear();
-
-    const int B = std::max(1, branching_factor);
-    const int D = std::max(0, tree_depth);
-    const int EFFECTIVE_DEPTH = (D > 0) ? (D - 1) : 0;
-
-    // Ensure motion samples exist for current commands
-    if ((int)precomputed_rel_.size() != B) {
-        precomputeCommandSamples();
-    }
-
-    // Precompute start-frame axes (for forward/lateral projections)
-    const double cs0 = std::cos(root_state.heading);
-    const double ss0 = std::sin(root_state.heading);
-
-    // Reserve generously, but finite
-    size_t max_nodes = 1, powB = 1;
-    for (int d = 0; d < EFFECTIVE_DEPTH; ++d) { powB *= (size_t)B; max_nodes += powB; }
-    max_nodes = std::min(max_nodes, (size_t)500000);
-    out.nodes.reserve(max_nodes);
-
-    // Root node
-    FlatNode root;
-    root.state  = root_state;
-    root.parent = -1;
-    root.steer  = 0.0;
-    root.dir    = 1;
-    root.depth  = 0;
-    root.cost   = 0.0;     // g(root)
-    out.nodes.push_back(root);
-
-    // Best goal found so far
-    int    best_goal_idx   = -1;
-    double best_goal_cost  = std::numeric_limits<double>::infinity();
-
-    // OPEN and best-g (duplicate suppression on lattice)
-    std::priority_queue<PQItem> open;
-    std::unordered_map<LatticeKey, double, LatticeKeyHash> best_g;
-
-    auto stateKey = [&](const State& s)->LatticeKey {
-        return LatticeKey{ s.gridx, s.gridy, heading_bin(s.heading) };
-    };
-
-    // Heuristic lower bound from depth d to EFFECTIVE_DEPTH (reward only)
-    auto h_lower_bound = [&](int depth)->double {
-        const int remaining_segments = EFFECTIVE_DEPTH - depth;
-        if (remaining_segments <= 0) return 0.0;
-        const int remaining_steps = remaining_segments * pathLength;
-        // Best case: straight forward progress each step
-        return -W_FORWARD * (remaining_steps * step_car);
-    };
-
-    // Push root
-    {
-        LatticeKey k = stateKey(root.state);
-        best_g[k] = 0.0;
-        const double f0 = 0.0 + h_lower_bound(0);
-        open.push(PQItem{0, f0, 0.0});
-    }
-
-    // Expand parent->child for motion index ci (returns child idx or -1)
-    auto expand_one = [&](int parent_idx, size_t ci)->int {
-        const FlatNode& parent = out.nodes[parent_idx];
-
-        // rotate once for parent.heading
-        const double cp = std::cos(parent.state.heading);
-        const double sp = std::sin(parent.state.heading);
-
-        const auto& seq = precomputed_rel_[ci];
-
-        State   last = parent.state;
-        double  obs_pen_sum = 0.0;  // clearance penalty accumulator this segment
-
-        for (int k = 0; k < pathLength; ++k) {
-            const auto& r = seq[k];
-
-            State ns;
-            ns.x = parent.state.x + cp * r.x - sp * r.y;
-            ns.y = parent.state.y + sp * r.x + cp * r.y;
-            ns.z = parent.state.z;
-            ns.heading = parent.state.heading + r.heading;
-
-            auto cell = grid_map_->toCellID(ns);
-            ns.gridx = std::get<0>(cell);
-            ns.gridy = std::get<1>(cell);
-
-            // hard collision check (your predicate)
-            if (grid_map_->isSingleStateCollisionFreeImproved(ns)) {
-                return -1; // reject whole segment
-            }
-
-            // soft clearance penalty using distance field
-            const double d = clearanceMeters(ns.gridx, ns.gridy); // meters
-            if (d < SAFE_CLEAR) obs_pen_sum += (SAFE_CLEAR - d);
-
-            last = ns;
-        }
-
-        // Child node
-        FlatNode child;
-        child.state  = last;
-        child.parent = parent_idx;
-        child.depth  = parent.depth + 1;
-        child.steer  = motionCommand[ci][0];
-        child.dir    = (int)motionCommand[ci][1];
-
-        // Costs
-        const double steer_pen  = W_STEER   * std::fabs(child.steer);
-        const double dsteer_pen = W_DSTEER  * std::fabs(child.steer - parent.steer);
-
-        // forward reward in start-frame
-        const double dx = (last.x - parent.state.x);
-        const double dy = (last.y - parent.state.y);
-        const double forward_inc =  dx * cs0 + dy * ss0;
-
-        // average clearance penalty across steps
-        const double obs_pen = W_OBS * (obs_pen_sum / std::max(1, pathLength));
-
-        const double g_child = out.nodes[parent_idx].cost
-                             + steer_pen
-                             + dsteer_pen
-                             + obs_pen
-                             - W_FORWARD * forward_inc;
-
-        child.cost = g_child; // store g
-
-        // Duplicate suppression on lattice key
-        LatticeKey ck = stateKey(child.state);
-        auto it = best_g.find(ck);
-        if (it != best_g.end() && g_child >= it->second - 1e-12) {
-            return -1; // dominated
-        }
-        best_g[ck] = g_child;
-
-        out.nodes.push_back(child);
-        return static_cast<int>(out.nodes.size()) - 1;
-    };
-
-    // A* loop
-    while (!open.empty())
-    {
-        PQItem cur = open.top(); open.pop();
-
-        const int idx   = cur.idx;
-        const auto& fn  = out.nodes[idx];
-        const double g  = fn.cost;
-        const int    d  = fn.depth;
-
-        // stale entry?
-        if (std::fabs(g - cur.g_copy) > 1e-12) continue;
-
-        // Goal at EFFECTIVE_DEPTH → add terminal terms and maybe terminate
-        if (d == EFFECTIVE_DEPTH)
-        {
-            const double dx = fn.state.x - root_state.x;
-            const double dy = fn.state.y - root_state.y;
-            const double lateral = -dx * ss0 + dy * cs0;
-            const double head_err = std::fabs(wrapAngle(fn.state.heading - root_state.heading));
-
-            const double total = g
-                               + W_LAT  * std::fabs(lateral)
-                               + W_HEAD * head_err;
-
-            if (total < best_goal_cost) {
-                best_goal_cost = total;
-                best_goal_idx  = idx;
-            }
-
-            if (!open.empty() && open.top().f_est >= best_goal_cost - 1e-12) break;
-            continue;
-        }
-
-        // Expand children
-        bool produced_child = false;
-        for (size_t ci = 0; ci < motionCommand.size(); ++ci)
-        {
-            const int child_idx = expand_one(idx, ci);
-            if (child_idx < 0) continue;
-            produced_child = true;
-
-            const auto& ch = out.nodes[child_idx];
-            const double h = h_lower_bound(ch.depth);
-            open.push(PQItem{child_idx, ch.cost + h, ch.cost});
-        }
-
-        // Dead-end → treat as candidate goal too
-        if (!produced_child)
-        {
-            const double dx = fn.state.x - root_state.x;
-            const double dy = fn.state.y - root_state.y;
-            const double lateral = -dx * ss0 + dy * cs0;
-            const double head_err = std::fabs(wrapAngle(fn.state.heading - root_state.heading));
-
-            const double total = g
-                               + W_LAT  * std::fabs(lateral)
-                               + W_HEAD * head_err;
-
-            if (total < best_goal_cost) {
-                best_goal_cost = total;
-                best_goal_idx  = idx;
-            }
-            if (!open.empty() && open.top().f_est >= best_goal_cost - 1e-12) break;
-        }
-    }
-
-    // Keep the best leaf for downstream publishing
-    out.leaves.clear();
-    if (best_goal_idx >= 0) out.leaves.push_back(best_goal_idx);
-
-    // BFS output for the number of nodes at each depth
-    std::vector<int> per_depth(EFFECTIVE_DEPTH + 1, 0);
-    for (const auto& n : out.nodes)
-        if (n.depth > 0 && n.depth <= EFFECTIVE_DEPTH) per_depth[n.depth]++;
-
-    return best_goal_idx;
+    return generateTrajectoryTreeImpl(root_state, out, false);
 }
 
 int path_planning::generateTrajectoryTree_AStar_flat_map_with_waypoints(const State& root_state, TreeFlat& out)
 {
+    return generateTrajectoryTreeImpl(root_state, out, true);
+}
+
+int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat& out, const bool use_waypoints)
+{
     out.nodes.clear();
     out.leaves.clear();
 
-    const int B = std::max(1, branching_factor);
+    const int B = std::max(1, static_cast<int>(motion_primitives_.size()));
     const int D = std::max(0, tree_depth);
     const int EFFECTIVE_DEPTH = (D > 0) ? (D - 1) : 0;
 
-    // Ensure motion samples exist for current commands
-    if ((int)precomputed_rel_.size() != B) {
-        precomputeCommandSamples();
-    }
-
-    // Start-frame axes (for forward/lateral projections at termination)
     const double cs0 = std::cos(root_state.heading);
     const double ss0 = std::sin(root_state.heading);
 
-    // Reserve roughly B^(depth) nodes (capped)
-    size_t max_nodes = 1, powB = 1;
-    for (int d = 0; d < EFFECTIVE_DEPTH; ++d) { powB *= (size_t)B; max_nodes += powB; }
-    max_nodes = std::min(max_nodes, (size_t)500000);
+    size_t max_nodes = 1;
+    size_t powB = 1;
+    for (int d = 0; d < EFFECTIVE_DEPTH; ++d) {
+        powB *= static_cast<size_t>(B);
+        max_nodes += powB;
+    }
+    max_nodes = std::min(max_nodes, static_cast<size_t>(500000));
     out.nodes.reserve(max_nodes);
 
-    // Root
     FlatNode root;
-    root.state  = root_state;
+    root.state = root_state;
     root.parent = -1;
-    root.steer  = 0.0;
-    root.dir    = 1;
-    root.depth  = 0;
-    root.cost   = 0.0;     // g(root)
+    root.primitive_index = -1;
+    root.depth = 0;
+    root.cost = 0.0;
     out.nodes.push_back(root);
 
-    // Best goal found so far
-    int    best_goal_idx   = -1;
-    double best_goal_cost  = std::numeric_limits<double>::infinity();
+    int best_goal_idx = -1;
+    double best_goal_cost = std::numeric_limits<double>::infinity();
 
-    // OPEN and best-g (duplicate suppression on lattice)
     std::priority_queue<PQItem> open;
     std::unordered_map<LatticeKey, double, LatticeKeyHash> best_g;
 
-    auto stateKey = [&](const State& s)->LatticeKey {
-        return LatticeKey{ s.gridx, s.gridy, heading_bin(s.heading) };
+    auto stateKey = [&](const State& s) -> LatticeKey {
+        return LatticeKey{static_cast<int>(s.gridx), static_cast<int>(s.gridy), heading_bin(s.heading)};
     };
 
-    // Admissible LB heuristic: only forward reward remaining
-    auto h_lower_bound = [&](int depth)->double {
+    auto h_lower_bound = [&](int depth) -> double {
         const int remaining_segments = EFFECTIVE_DEPTH - depth;
-        if (remaining_segments <= 0) return 0.0;
+        if (remaining_segments <= 0) {
+            return 0.0;
+        }
         const int remaining_steps = remaining_segments * pathLength;
-        return -W_FORWARD * (remaining_steps * step_car);
+        return -W_FORWARD * (remaining_steps * kinematic_model_->maxForwardStep());
     };
 
-    // Push root
-    {
-        LatticeKey k = stateKey(root.state);
-        best_g[k] = 0.0;
-        const double f0 = 0.0 + h_lower_bound(0);
-        open.push(PQItem{0, f0, 0.0});
-    }
-
-    // Safe sampler for waypoint distance fields (returns meters; 0 if out of range/none)
-    auto sample_wp_dist = [&](int gx, int gy)->double {
-        // Prefer prio-1 if available in this chunk, else prio-2, else no attraction
+    auto sample_wp_dist = [&](int gx, int gy) -> double {
+        if (!use_waypoints) {
+            return 0.0;
+        }
         if (has_wp1_ && !dist_wp1_m_.empty()) {
             if (gy >= 0 && gy < dist_wp1_m_.rows && gx >= 0 && gx < dist_wp1_m_.cols) {
-                return (double)dist_wp1_m_.at<float>(gy, gx) * W_WP1;
+                return static_cast<double>(dist_wp1_m_.at<float>(gy, gx)) * W_WP1;
             }
             return 0.0;
-        } else if (has_wp2_ && !dist_wp2_m_.empty()) {
+        }
+        if (has_wp2_ && !dist_wp2_m_.empty()) {
             if (gy >= 0 && gy < dist_wp2_m_.rows && gx >= 0 && gx < dist_wp2_m_.cols) {
-                return (double)dist_wp2_m_.at<float>(gy, gx) * W_WP2;
+                return static_cast<double>(dist_wp2_m_.at<float>(gy, gx)) * W_WP2;
             }
             return 0.0;
         }
         return 0.0;
     };
 
-    // Expand parent->child for motion index ci (returns child idx or -1)
-    auto expand_one = [&](int parent_idx, size_t ci)->int {
+    {
+        const LatticeKey k = stateKey(root.state);
+        best_g[k] = 0.0;
+        open.push(PQItem{0, h_lower_bound(0), 0.0});
+    }
+
+    auto expand_one = [&](int parent_idx, size_t primitive_idx) -> int {
         const FlatNode& parent = out.nodes[parent_idx];
+        const MotionPrimitive& primitive = motion_primitives_[primitive_idx];
+        RolloutResult rollout =
+            kinematic_model_->rollout(parent.state, primitive, pathLength);
 
-        // rotate once for parent.heading
-        const double cp = std::cos(parent.state.heading);
-        const double sp = std::sin(parent.state.heading);
+        if (rollout.samples.empty()) {
+            return -1;
+        }
 
-        const auto& seq = precomputed_rel_[ci];
+        double obs_pen_sum = 0.0;
+        double wp_pen_sum = 0.0;
 
-        State   last = parent.state;
-        double  obs_pen_sum = 0.0;  // clearance penalty accumulator this segment
-        double  wp_pen_sum  = 0.0;  // waypoint attraction accumulator (meters * weight)
-
-        for (int k = 0; k < pathLength; ++k) {
-            const auto& r = seq[k];
-
-            State ns;
-            ns.x = parent.state.x + cp * r.x - sp * r.y;
-            ns.y = parent.state.y + sp * r.x + cp * r.y;
+        for (auto& ns : rollout.samples) {
             ns.z = parent.state.z;
-            ns.heading = parent.state.heading + r.heading;
-
             auto cell = grid_map_->toCellID(ns);
             ns.gridx = std::get<0>(cell);
             ns.gridy = std::get<1>(cell);
 
-            // Hard collision check.
-            // NOTE: if isSingleStateCollisionFreeImproved() returns "true means collision-free",
-            //       invert the condition below (i.e., if (!collisionFree) reject).
             if (grid_map_->isSingleStateCollisionFreeImproved(ns)) {
-                return -1; // reject whole segment on collision (adjust if API semantics differ)
+                return -1;
             }
 
-            // Soft clearance penalty using distance field
-            const double d = clearanceMeters(ns.gridx, ns.gridy); // meters
-            if (d < SAFE_CLEAR) obs_pen_sum += (SAFE_CLEAR - d);
-            
-            // Early termination if clearance is too low to avoid straight-line paths in curves
-            if (d < SAFE_CLEAR * 0.6) {  // Quit if clearance is less than 60% of safe clearance (0.48m)
-                return -1; // reject whole segment on insufficient clearance
+            const double d = clearanceMeters(static_cast<int>(ns.gridx), static_cast<int>(ns.gridy));
+            if (d < SAFE_CLEAR) {
+                obs_pen_sum += (SAFE_CLEAR - d);
             }
 
-            // Waypoint attraction (distance to prio-1 if present, else prio-2)
-            wp_pen_sum += sample_wp_dist(ns.gridx, ns.gridy);
+            if (use_waypoints && d < SAFE_CLEAR * 0.6) {
+                return -1;
+            }
 
-            last = ns;
+            wp_pen_sum += sample_wp_dist(static_cast<int>(ns.gridx), static_cast<int>(ns.gridy));
         }
 
-        // Child node
         FlatNode child;
-        child.state  = last;
+        child.state = rollout.samples.back();
         child.parent = parent_idx;
-        child.depth  = parent.depth + 1;
-        child.steer  = motionCommand[ci][0];
-        child.dir    = (int)motionCommand[ci][1];
+        child.primitive_index = static_cast<int>(primitive_idx);
+        child.depth = parent.depth + 1;
+        child.segment_samples = std::move(rollout.samples);
 
-        // Costs
-        const double steer_pen  = W_STEER   * std::fabs(child.steer);
-        const double dsteer_pen = W_DSTEER  * std::fabs(child.steer - parent.steer);
-        
-        // Extra penalty for straight-ahead motion when waypoints are available AND obstacles are nearby
+        const MotionPrimitive* previous_primitive =
+            parent.primitive_index >= 0 ? &motion_primitives_[parent.primitive_index] : nullptr;
+        const double steer_pen =
+            W_STEER * kinematic_model_->controlEffort(primitive);
+        const double dsteer_pen =
+            W_DSTEER * kinematic_model_->smoothnessCost(previous_primitive, primitive);
+
+        const double dx = child.state.x - parent.state.x;
+        const double dy = child.state.y - parent.state.y;
+        const double forward_inc = dx * cs0 + dy * ss0;
+
+        const double obs_pen = W_OBS * (obs_pen_sum / std::max(1, pathLength));
+        const double wp_pen =
+            use_waypoints ? (wp_pen_sum / std::max(1, pathLength)) : 0.0;
+
         double straight_penalty = 0.0;
-        if (std::abs(child.steer) < 0.01 && (has_wp1_ || has_wp2_)) {
-            // Only penalize straight motion if there are obstacles nearby (low clearance)
-            double avg_clearance = obs_pen_sum / std::max(1, pathLength);
-            if (avg_clearance > 0.1) { // If there's significant obstacle penalty, add straight penalty
-                straight_penalty = 2.0; // Reduced penalty, only when obstacles present
+        if (use_waypoints && std::fabs(primitive.angular_step) < 1e-6 &&
+            std::fabs(primitive.steering_angle) < 1e-6 && forward_inc > 0.0) {
+            const double avg_clearance = obs_pen_sum / std::max(1, pathLength);
+            if (avg_clearance > 0.1) {
+                straight_penalty = 2.0;
             }
         }
 
-        // forward reward measured in the start frame
-        const double dx = (last.x - parent.state.x);
-        const double dy = (last.y - parent.state.y);
-        const double forward_inc =  dx * cs0 + dy * ss0;
+        const double g_child = parent.cost + steer_pen + dsteer_pen + obs_pen +
+                               wp_pen + straight_penalty -
+                               W_FORWARD * forward_inc;
 
-        // Average penalties over steps for scale stability
-        const double obs_pen = W_OBS * (obs_pen_sum / std::max(1, pathLength));
-        const double wp_pen  = (wp_pen_sum / std::max(1, pathLength)); // already includes W_WP{1,2}
+        child.cost = g_child;
 
-        const double g_child = out.nodes[parent_idx].cost
-                             + steer_pen
-                             + dsteer_pen
-                             + obs_pen
-                             + wp_pen
-                             + straight_penalty
-                             - W_FORWARD * forward_inc;
-
-        child.cost = g_child; // store g
-
-        // Duplicate suppression on lattice key
-        LatticeKey ck = stateKey(child.state);
+        const LatticeKey ck = stateKey(child.state);
         auto it = best_g.find(ck);
         if (it != best_g.end() && g_child >= it->second - 1e-12) {
-            return -1; // dominated
+            return -1;
         }
         best_g[ck] = g_child;
 
-        out.nodes.push_back(child);
+        out.nodes.push_back(std::move(child));
         return static_cast<int>(out.nodes.size()) - 1;
     };
 
-    // A* loop
-    while (!open.empty())
-    {
-        PQItem cur = open.top(); open.pop();
+    while (!open.empty()) {
+        const PQItem cur = open.top();
+        open.pop();
 
-        const int idx   = cur.idx;
-        const auto& fn  = out.nodes[idx];
-        const double g  = fn.cost;
-        const int    d  = fn.depth;
+        const int idx = cur.idx;
+        const auto& fn = out.nodes[idx];
+        const double g = fn.cost;
+        const int d = fn.depth;
 
-        // stale entry?
-        if (std::fabs(g - cur.g_copy) > 1e-12) continue;
-
-        // Goal at EFFECTIVE_DEPTH → add terminal terms and maybe terminate
-        if (d == EFFECTIVE_DEPTH)
-        {
-            const double dx = fn.state.x - root_state.x;
-            const double dy = fn.state.y - root_state.y;
-            const double lateral = -dx * ss0 + dy * cs0;
-            const double head_err = std::fabs(wrapAngle(fn.state.heading - root_state.heading));
-
-            const double total = g
-                               + W_LAT  * std::fabs(lateral)
-                               + W_HEAD * head_err;
-
-            if (total < best_goal_cost) {
-                best_goal_cost = total;
-                best_goal_idx  = idx;
-            }
-
-            if (!open.empty() && open.top().f_est >= best_goal_cost - 1e-12) break;
+        if (std::fabs(g - cur.g_copy) > 1e-12) {
             continue;
         }
 
-        // Expand children
-        bool produced_child = false;
-        for (size_t ci = 0; ci < motionCommand.size(); ++ci)
-        {
-            const int child_idx = expand_one(idx, ci);
-            if (child_idx < 0) continue;
-            produced_child = true;
-
-            const auto& ch = out.nodes[child_idx];
-            const double h = h_lower_bound(ch.depth);
-            open.push(PQItem{child_idx, ch.cost + h, ch.cost});
-        }
-
-        // Dead-end → treat as candidate goal too
-        if (!produced_child)
-        {
+        if (d == EFFECTIVE_DEPTH) {
             const double dx = fn.state.x - root_state.x;
             const double dy = fn.state.y - root_state.y;
             const double lateral = -dx * ss0 + dy * cs0;
-            const double head_err = std::fabs(wrapAngle(fn.state.heading - root_state.heading));
+            const double head_err =
+                std::fabs(wrapAngle(fn.state.heading - root_state.heading));
 
-            const double total = g
-                               + W_LAT  * std::fabs(lateral)
-                               + W_HEAD * head_err;
+            const double total =
+                g + W_LAT * std::fabs(lateral) + W_HEAD * head_err;
 
             if (total < best_goal_cost) {
                 best_goal_cost = total;
-                best_goal_idx  = idx;
+                best_goal_idx = idx;
             }
-            if (!open.empty() && open.top().f_est >= best_goal_cost - 1e-12) break;
+
+            if (!open.empty() && open.top().f_est >= best_goal_cost - 1e-12) {
+                break;
+            }
+            continue;
+        }
+
+        bool produced_child = false;
+        for (size_t primitive_idx = 0; primitive_idx < motion_primitives_.size();
+             ++primitive_idx) {
+            const int child_idx = expand_one(idx, primitive_idx);
+            if (child_idx < 0) {
+                continue;
+            }
+            produced_child = true;
+
+            const auto& ch = out.nodes[child_idx];
+            open.push(PQItem{child_idx, ch.cost + h_lower_bound(ch.depth),
+                             ch.cost});
+        }
+
+        if (!produced_child) {
+            const double dx = fn.state.x - root_state.x;
+            const double dy = fn.state.y - root_state.y;
+            const double lateral = -dx * ss0 + dy * cs0;
+            const double head_err =
+                std::fabs(wrapAngle(fn.state.heading - root_state.heading));
+
+            const double total =
+                g + W_LAT * std::fabs(lateral) + W_HEAD * head_err;
+
+            if (total < best_goal_cost) {
+                best_goal_cost = total;
+                best_goal_idx = idx;
+            }
+            if (!open.empty() && open.top().f_est >= best_goal_cost - 1e-12) {
+                break;
+            }
         }
     }
 
-    // Collect all leaf nodes (nodes at maximum depth) for visualization
     out.leaves.clear();
     for (size_t i = 0; i < out.nodes.size(); ++i) {
         if (out.nodes[i].depth == EFFECTIVE_DEPTH) {
             out.leaves.push_back(static_cast<int>(i));
         }
     }
-    
-    // Also keep track of the best leaf
+
     if (best_goal_idx >= 0) {
-        // Ensure best goal is in leaves (it should be if it reached max depth)
-        bool found = false;
-        for (int leaf : out.leaves) {
-            if (leaf == best_goal_idx) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
+        const bool is_listed = std::find(out.leaves.begin(), out.leaves.end(),
+                                         best_goal_idx) != out.leaves.end();
+        if (!is_listed) {
             out.leaves.push_back(best_goal_idx);
         }
     }
@@ -1391,14 +1194,6 @@ void path_planning::publishBestPathFromFlat(const TreeFlat& flat, int leaf_idx, 
     clear.ns = "real_endpoints";     msg.markers.push_back(clear);
     clear.ns = "real_trajectory_labels"; msg.markers.push_back(clear);
 
-    // helper to map (steer,dir) -> precomputed index
-    auto find_cmd_index = [&](double steer, int dir)->int{
-        for (size_t i = 0; i < motionCommand.size(); ++i)
-            if (dir == (int)motionCommand[i][1] && std::abs(steer - motionCommand[i][0]) < 1e-9)
-                return (int)i;
-        return -1;
-    };
-
     // line marker
     visualization_msgs::msg::Marker line;
     line.header.frame_id = "map";
@@ -1424,50 +1219,24 @@ void path_planning::publishBestPathFromFlat(const TreeFlat& flat, int leaf_idx, 
     line.color.a = 1.0;
 
     // start at the true root pose so the polyline includes the origin point
-    State seg_start = flat.nodes[ chain.front() ].state;
+    const State &root_state = flat.nodes[chain.front()].state;
     {
         geometry_msgs::msg::Point p;
-        p.x = seg_start.x; p.y = seg_start.y; p.z = seg_start.z;
+        p.x = root_state.x; p.y = root_state.y; p.z = root_state.z;
         line.points.push_back(p);
     }
 
-    // march along all segments root->leaf and append every step
+    State end_state = root_state;
     for (size_t k = 1; k < chain.size(); ++k)
     {
-        const auto& fn = flat.nodes[ chain[k] ];
-        const int ci = find_cmd_index(fn.steer, fn.dir);
-
-        if (ci >= 0 && ci < (int)precomputed_rel_.size() &&
-            (int)precomputed_rel_[ci].size() == pathLength)
-        {
-            const double c0 = std::cos(seg_start.heading);
-            const double s0 = std::sin(seg_start.heading);
-
-            for (int i = 0; i < pathLength; ++i) {
-                const auto& r = precomputed_rel_[ci][i];
-                geometry_msgs::msg::Point p;
-                p.x = seg_start.x + c0 * r.x - s0 * r.y;
-                p.y = seg_start.y + s0 * r.x + c0 * r.y;
-                p.z = seg_start.z;
-                line.points.push_back(p);
-            }
-            // advance start to the end of this segment
-            const auto& rlast = precomputed_rel_[ci].back();
-            seg_start.x += c0 * rlast.x - s0 * rlast.y;
-            seg_start.y += s0 * rlast.x + c0 * rlast.y;
-            seg_start.heading += rlast.heading;
-        }
-        else
-        {
-            // fallback: re-simulate this one segment
-            State s = seg_start;
-            for (int i = 0; i < pathLength; ++i) {
-                s = car_data_.getVehicleStep(s, fn.steer, fn.dir, step_car);
-                geometry_msgs::msg::Point p;
-                p.x = s.x; p.y = s.y; p.z = s.z;
-                line.points.push_back(p);
-            }
-            seg_start = s;
+        const auto& fn = flat.nodes[chain[k]];
+        for (const auto& sample : fn.segment_samples) {
+            geometry_msgs::msg::Point p;
+            p.x = sample.x;
+            p.y = sample.y;
+            p.z = sample.z;
+            line.points.push_back(p);
+            end_state = sample;
         }
     }
 
@@ -1481,9 +1250,9 @@ void path_planning::publishBestPathFromFlat(const TreeFlat& flat, int leaf_idx, 
     endpoint.id = 1;
     endpoint.type = visualization_msgs::msg::Marker::SPHERE;
     endpoint.action = visualization_msgs::msg::Marker::ADD;
-    endpoint.pose.position.x = seg_start.x;
-    endpoint.pose.position.y = seg_start.y;
-    endpoint.pose.position.z = seg_start.z + 0.2;
+    endpoint.pose.position.x = end_state.x;
+    endpoint.pose.position.y = end_state.y;
+    endpoint.pose.position.z = end_state.z + 0.2;
     endpoint.scale.x = 0.2; endpoint.scale.y = 0.2; endpoint.scale.z = 0.2;
     endpoint.color = line.color; endpoint.color.a = 0.8;
     msg.markers.push_back(endpoint);
@@ -1512,14 +1281,6 @@ void path_planning::publishAllPathsFromFlat(const TreeFlat& flat)
     clear.action = visualization_msgs::msg::Marker::DELETEALL;
     clear.ns = "all_paths";
     msg.markers.push_back(clear);
-
-    // Helper to map (steer,dir) -> precomputed index
-    auto find_cmd_index = [&](double steer, int dir)->int{
-        for (size_t i = 0; i < motionCommand.size(); ++i)
-            if (dir == (int)motionCommand[i][1] && std::abs(steer - motionCommand[i][0]) < 1e-9)
-                return (int)i;
-        return -1;
-    };
 
     // Publish all paths from root to each leaf
     for (size_t leaf_idx = 0; leaf_idx < flat.leaves.size(); ++leaf_idx)
@@ -1554,38 +1315,22 @@ void path_planning::publishAllPathsFromFlat(const TreeFlat& flat)
         line.color.a = 0.7; // Semi-transparent
 
         // Start at the root pose
-        State seg_start = flat.nodes[chain.front()].state;
+        const State &root_state = flat.nodes[chain.front()].state;
         {
             geometry_msgs::msg::Point p;
-            p.x = seg_start.x; p.y = seg_start.y; p.z = seg_start.z;
+            p.x = root_state.x; p.y = root_state.y; p.z = root_state.z;
             line.points.push_back(p);
         }
 
-        // March along all segments root->leaf
         for (size_t k = 1; k < chain.size(); ++k)
         {
             const auto& fn = flat.nodes[chain[k]];
-            const int ci = find_cmd_index(fn.steer, fn.dir);
-
-            if (ci >= 0 && ci < (int)precomputed_rel_.size() &&
-                (int)precomputed_rel_[ci].size() == pathLength)
-            {
-                const double c0 = std::cos(seg_start.heading);
-                const double s0 = std::sin(seg_start.heading);
-
-                for (int i = 0; i < pathLength; ++i) {
-                    const auto& r = precomputed_rel_[ci][i];
-                    geometry_msgs::msg::Point p;
-                    p.x = seg_start.x + c0 * r.x - s0 * r.y;
-                    p.y = seg_start.y + s0 * r.x + c0 * r.y;
-                    p.z = seg_start.z + 0.2;
-                    line.points.push_back(p);
-                }
-                // Advance start to the end of this segment
-                const auto& rlast = precomputed_rel_[ci].back();
-                seg_start.x += c0 * rlast.x - s0 * rlast.y;
-                seg_start.y += s0 * rlast.x + c0 * rlast.y;
-                seg_start.heading += rlast.heading;
+            for (const auto& sample : fn.segment_samples) {
+                geometry_msgs::msg::Point p;
+                p.x = sample.x;
+                p.y = sample.y;
+                p.z = sample.z + 0.2;
+                line.points.push_back(p);
             }
         }
 
@@ -1598,7 +1343,6 @@ void path_planning::publishAllPathsFromFlat(const TreeFlat& flat)
 
 void path_planning::publishTrajectoryPath(const TreeFlat& flat, int leaf_idx)
 {
-    RCLCPP_INFO(this->get_logger(), "\033[1; Aquíiiii: %d\033[0m", end_lanelet_id_);
     if (sdv_trajectory_pub_->get_subscription_count() == 0) return;
     
     nav_msgs::msg::Path path_msg;
@@ -1614,28 +1358,20 @@ void path_planning::publishTrajectoryPath(const TreeFlat& flat, int leaf_idx)
     std::vector<int> chain;
     build_chain_indices(flat, leaf_idx, chain);
 
-    // Helper to map (steer,dir) -> precomputed index
-    auto find_cmd_index = [&](double steer, int dir)->int{
-        for (size_t i = 0; i < motionCommand.size(); ++i)
-            if (dir == (int)motionCommand[i][1] && std::abs(steer - motionCommand[i][0]) < 1e-9)
-                return (int)i;
-        return -1;
-    };
-
     // Start at the root pose
-    State seg_start = flat.nodes[chain.front()].state;
+    const State &root_state = flat.nodes[chain.front()].state;
     
     // Add the starting point
     geometry_msgs::msg::PoseStamped start_pose;
     start_pose.header.frame_id = "map";
     start_pose.header.stamp = path_msg.header.stamp;
-    start_pose.pose.position.x = seg_start.x;
-    start_pose.pose.position.y = seg_start.y;
-    start_pose.pose.position.z = seg_start.z;
+    start_pose.pose.position.x = root_state.x;
+    start_pose.pose.position.y = root_state.y;
+    start_pose.pose.position.z = root_state.z;
     
     // Convert heading to quaternion
     tf2::Quaternion q;
-    q.setRPY(0, 0, seg_start.heading);
+    q.setRPY(0, 0, root_state.heading);
     start_pose.pose.orientation.x = q.x();
     start_pose.pose.orientation.y = q.y();
     start_pose.pose.orientation.z = q.z();
@@ -1643,46 +1379,25 @@ void path_planning::publishTrajectoryPath(const TreeFlat& flat, int leaf_idx)
     
     path_msg.poses.push_back(start_pose);
 
-    // March along all segments root->leaf
     for (size_t k = 1; k < chain.size(); ++k)
     {
         const auto& fn = flat.nodes[chain[k]];
-        const int ci = find_cmd_index(fn.steer, fn.dir);
+        for (const auto& sample : fn.segment_samples) {
+            geometry_msgs::msg::PoseStamped pose;
+            pose.header.frame_id = "map";
+            pose.header.stamp = path_msg.header.stamp;
+            pose.pose.position.x = sample.x;
+            pose.pose.position.y = sample.y;
+            pose.pose.position.z = sample.z + 0.2;
 
-        if (ci >= 0 && ci < (int)precomputed_rel_.size() &&
-            (int)precomputed_rel_[ci].size() == pathLength)
-        {
-            const double c0 = std::cos(seg_start.heading);
-            const double s0 = std::sin(seg_start.heading);
+            tf2::Quaternion sample_q;
+            sample_q.setRPY(0, 0, sample.heading);
+            pose.pose.orientation.x = sample_q.x();
+            pose.pose.orientation.y = sample_q.y();
+            pose.pose.orientation.z = sample_q.z();
+            pose.pose.orientation.w = sample_q.w();
 
-            for (int i = 0; i < pathLength; ++i) {
-                const auto& r = precomputed_rel_[ci][i];
-                
-                geometry_msgs::msg::PoseStamped pose;
-                pose.header.frame_id = "map";
-                pose.header.stamp = path_msg.header.stamp;
-                
-                pose.pose.position.x = seg_start.x + c0 * r.x - s0 * r.y;
-                pose.pose.position.y = seg_start.y + s0 * r.x + c0 * r.y;
-                pose.pose.position.z = seg_start.z + 0.2;
-                
-                // Convert heading to quaternion
-                double heading = seg_start.heading + r.heading;
-                tf2::Quaternion q;
-                q.setRPY(0, 0, heading);
-                pose.pose.orientation.x = q.x();
-                pose.pose.orientation.y = q.y();
-                pose.pose.orientation.z = q.z();
-                pose.pose.orientation.w = q.w();
-                
-                path_msg.poses.push_back(pose);
-            }
-            
-            // Advance start to the end of this segment
-            const auto& rlast = precomputed_rel_[ci].back();
-            seg_start.x += c0 * rlast.x - s0 * rlast.y;
-            seg_start.y += s0 * rlast.x + c0 * rlast.y;
-            seg_start.heading += rlast.heading;
+            path_msg.poses.push_back(pose);
         }
     }
 

@@ -48,10 +48,11 @@ find_package(lanelet2_validation)
 
 add_executable(path_planning_node
                 src/path_planning.cpp
+                src/kinematic_models.cpp
                 src/sat_collision_checker.cc
-                src/CarData.cpp
                 src/Grid_map.cpp
                 src/GlobalPlanner.cpp
+                src/vehicle_footprint.cpp
                )
 
 add_executable(pointcloud_clustering_node src/pointcloud_clustering.cpp)

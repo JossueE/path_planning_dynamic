@@ -1,12 +1,17 @@
 path_planning_node:
   ros__parameters:
-    maxSteerAngle: 0.1                # Maximum steering angle of the wheels (rad). Limits path curvature.
-    wheelBase: 0.08                   # Distance between front and rear axle (m). Affects vehicle kinematics
-    axleToFront: 0.1                  # Distance from rear axle to the front of the vehicle (m).
-    axleToBack: 0.15                  # Distance from rear axle to the rear end of the vehicle (m).
-    width: 0.17                       # Total vehicle width (m).
-    pathLength: 4                     # Path length to generate (m).
-    step_car: 0.05                     # Distance between consecutive vehicle samples along the path (m). 
+    kinematics.model: "differential"     # Selectable model: ackermann or differential.
+    vehicle.axle_to_front: 0.1        # Distance from reference axle / robot center to the front footprint (m).
+    vehicle.axle_to_back: 0.15        # Distance from reference axle / robot center to the rear footprint (m).
+    vehicle.width: 0.17               # Total vehicle width (m).
+    planner.segment_steps: 4          # Number of rollout samples per motion primitive.
+    planner.sample_distance: 0.05     # Distance advanced per rollout sample for forward primitives (m).
+    ackermann.wheelbase: 0.08         # Distance between front and rear axle (m).
+    ackermann.max_steering_angle: 0.1 # Maximum steering angle of the front wheels (rad).
+    differential.linear_step: 0.05    # Forward distance per rollout sample for moving differential primitives (m).
+    differential.max_angular_step: 0.2 # Heading increment per rollout sample for differential primitives (rad).
+    differential.angular_samples: 5   # Number of moving angular samples for the differential model.
+    differential.include_in_place_rotation: true # Adds pure rotation primitives for the differential model.
     tree_depth: 5                     # Maximum depth of the A* search tree for local path planning.
     branching_factor: 5               # Number of possible branches (actions/commands) per tree level.
     map_path: package://autonomous_robot_simulation/utils/test.osm # Path to the Lanelet2 (.osm) map file.
@@ -15,7 +20,7 @@ path_planning_node:
     x_offset: 0.0                     # X offset to align map and robot frame (m).
     y_offset: 0.0                     # Y offset to align map and robot frame (m).
     num_lateral_offsets: 0            # Number of lateral offsets to generate alternative lanes (0 = only center lane).
-    global_planner_resolution: 0.3         # Resolution of the global planner grid (m).
+    global_planner_resolution: 0.2         # Resolution of the global planner grid (m).
     global_planner_close_radius: 1         # Radius around the robot to consider as "close" for the global planner (m).
     global_planner_close_iters: 1          # Number of iterations for close-range global planning.
     global_planner_outside_value: 100      # Cost value for outside the drivable area in the global planner.

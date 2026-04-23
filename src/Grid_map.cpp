@@ -214,9 +214,9 @@ bool Grid_map::isInCollision(int x, int y)
 
 // ===================== NEW METHOD =====================
 
-void Grid_map::setcarData(CarData car_data)
+void Grid_map::setVehicleFootprint(const VehicleFootprint &vehicle_footprint)
 {
-    car_data_ = car_data;
+    vehicle_footprint_ = vehicle_footprint;
 }
 
 double Grid_map::getObstacleDistance(const Eigen::Vector2d &pos) const
@@ -241,7 +241,7 @@ bool Grid_map::isSingleStateCollisionFree(const State &current)
     // auto init_time = std::chrono::system_clock::now();
 
     // Get the vehicle footprint as circles in global coordinates
-    std::vector<Circle> footprint = car_data_.getCircles(current);
+    std::vector<Circle> footprint = vehicle_footprint_.getCircles(current);
 
     // Loop through each circle in the footprint
     for (const auto &circle_itr : footprint)
@@ -286,7 +286,7 @@ bool Grid_map::isSingleStateCollisionFree(const State &current)
 bool Grid_map::isSingleStateCollisionFreeImproved(const State &current)
 {
     // Get the bounding circle for the vehicle in global coordinates
-    Circle bounding_circle = car_data_.getBoundingCircle(current);
+    Circle bounding_circle = vehicle_footprint_.getBoundingCircle(current);
 
     // Create a position based on the bounding circle's center
     Eigen::Vector2d pos(bounding_circle.x, bounding_circle.y);

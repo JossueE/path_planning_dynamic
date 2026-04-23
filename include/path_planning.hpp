@@ -30,8 +30,9 @@
 // STA collision checker
 #include "sat_collision_checker.h"
 
-// Car Data
-#include "CarData.h"
+// Kinematics and vehicle geometry
+#include "kinematic_models.hpp"
+#include "vehicle_footprint.hpp"
 
 // State
 #include "State.h"
@@ -39,28 +40,28 @@
 // Grid map
 #include "Grid_map.h"
 
-// Node
-#include "Node.h"
-
 // Global Planner
 #include "GlobalPlanner.hpp"
 
 // C++
 #include <iostream>
-#include <vector>
 #include <algorithm>
-#include <iostream>
 #include <cmath>
+#include <limits>
+#include <memory>
+#include <queue>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 // FlatNode and TreeFlat for the flat tree
 struct FlatNode {
   State state;          // last state of this segment
   int   parent;         // index in `nodes` (-1 for root)
   double cost;          // cumulative path cost (fill as you like)
-  double steer;         // steering used to reach this node (segment command)
-  int    dir;           // direction used to reach this node (segment command)
+  int primitive_index;  // primitive used to reach this node
   uint16_t depth;       // depth from root
+  std::vector<State> segment_samples; // absolute samples generated for this edge
 };
 
 struct TreeFlat {
@@ -136,13 +137,21 @@ private:
 
     fop::SATCollisionChecker collision_checker; // Collision checker
 
-    // Car Data
-    CarData car_data_;
-    double maxSteerAngle;
-    double wheelBase;
-    double axleToFront;
-    double axleToBack;
-    double width;
+    // vehicle geometry and kinematics
+    VehicleFootprint vehicle_footprint_;
+    std::unique_ptr<KinematicModel> kinematic_model_;
+    std::string kinematic_model_name_;
+    std::vector<MotionPrimitive> motion_primitives_;
+
+    double axle_to_front_{0.0};
+    double axle_to_back_{0.0};
+    double vehicle_width_{0.0};
+    double ackermann_max_steering_angle_{0.0};
+    double ackermann_wheelbase_{0.0};
+    double differential_linear_step_{0.0};
+    double differential_max_angular_step_{0.0};
+    int differential_angular_samples_{0};
+    bool differential_include_in_place_rotation_{true};
 
     // Grid Map
     std::shared_ptr<Grid_map> grid_map_;
@@ -194,10 +203,6 @@ private:
     // path prossecing and car dynamics
     // =============================
 
-    // function to get the motion commands
-    void motionCommands();
-    std::vector<std::vector<double>> motionCommand; // [steering angle, direction]
-
     // variables for the path prossecing and car dynamics
     int pathLength; // (int): number of micro-steps per edge/primitive.
     double step_car;  // (m): distance advanced per micro-step.
@@ -210,19 +215,11 @@ private:
     int square_size = 15; // Size of the square region in grid cells (covers car + margin)
     int half_square = square_size / 2;
     double forward_distance_square = 0.0; // this is for the white sqaure that ocloude the obstacles draw in the new map
-
-
-    std::shared_ptr<planner::Node> current_node;
-
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr real_trajectories_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr car_analytics_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr real_trajectories_pub_2;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr all_paths_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr sdv_trajectory_pub_;
-
-    struct RelSample { double x, y, heading; };
-    std::vector<std::vector<RelSample>> precomputed_rel_; // [cmd][step]
-    void precomputeCommandSamples();
 
     // ---- scoring weights (tune as needed) ----
     double W_FORWARD = 1.0;   // maximize forward progress
@@ -247,6 +244,7 @@ private:
     // generate the trajectory based on the flat tree on the A* algorithm
     int generateTrajectoryTree_AStar_flat_map(const State& root_state, TreeFlat& out);
     int generateTrajectoryTree_AStar_flat_map_with_waypoints(const State& root_state, TreeFlat& out);
+    int generateTrajectoryTreeImpl(const State& root_state, TreeFlat& out, bool use_waypoints);
 
     void buildDistanceField();
     double clearanceMeters(int gx, int gy) const;
