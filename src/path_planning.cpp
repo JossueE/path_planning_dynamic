@@ -28,6 +28,9 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     this->declare_parameter<double>("vehicle.width", 0.0);
     this->declare_parameter<int>("planner.segment_steps", 0);
     this->declare_parameter<double>("planner.sample_distance", 0.0);
+    this->declare_parameter<double>("planner.square_size_m", 1.6);
+    this->declare_parameter<double>("planner.safe_clear", 0.2);
+    this->declare_parameter<int>("planner.obstacle_inflation_radius_cells", 1);
     this->declare_parameter<int>("planner.branching_factor", 0);
     this->declare_parameter<double>("ackermann.wheelbase", 0.0);
     this->declare_parameter<double>("ackermann.max_steering_angle", 0.0);
@@ -65,6 +68,9 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     double vehicle_width = 0.0;
     int configured_segment_steps = 0;
     double configured_sample_distance = 0.0;
+    double configured_square_size_m = 1.6;
+    double configured_safe_clear = 0.2;
+    int configured_obstacle_inflation_radius_cells = 1;
     int configured_branching_factor = 0;
     double configured_ackermann_wheelbase = 0.0;
     double configured_ackermann_max_steering_angle = 0.0;
@@ -75,6 +81,9 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     this->get_parameter("vehicle.width", vehicle_width);
     this->get_parameter("planner.segment_steps", configured_segment_steps);
     this->get_parameter("planner.sample_distance", configured_sample_distance);
+    this->get_parameter("planner.square_size_m", configured_square_size_m);
+    this->get_parameter("planner.safe_clear", configured_safe_clear);
+    this->get_parameter("planner.obstacle_inflation_radius_cells", configured_obstacle_inflation_radius_cells);
     this->get_parameter("planner.branching_factor", configured_branching_factor);
     this->get_parameter("ackermann.wheelbase", configured_ackermann_wheelbase);
     this->get_parameter("ackermann.max_steering_angle", configured_ackermann_max_steering_angle);
@@ -113,6 +122,10 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     vehicle_width_ = selectConfiguredDouble(vehicle_width, legacy_width);
     pathLength = selectConfiguredInt(configured_segment_steps, legacy_path_length);
     step_car = selectConfiguredDouble(configured_sample_distance, legacy_step_car);
+    square_size_m_ = configured_square_size_m > 0.0 ? configured_square_size_m : 1.6;
+    SAFE_CLEAR = configured_safe_clear > 0.0 ? configured_safe_clear : 0.2;
+    obstacle_inflation_radius_cells_ =
+        std::max(0, configured_obstacle_inflation_radius_cells);
     branching_factor = selectConfiguredInt(configured_branching_factor, legacy_branching_factor);
     ackermann_wheelbase_ = selectConfiguredDouble(configured_ackermann_wheelbase, legacy_wheelbase);
     ackermann_max_steering_angle_ =
@@ -200,6 +213,10 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     RCLCPP_INFO(this->get_logger(), "\033[1;34mdifferential.angular_samples: %d\033[0m", differential_angular_samples_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mpathLength: %d\033[0m", pathLength);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mstep_car: %f\033[0m", step_car);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mplanner.square_size_m: %f\033[0m", square_size_m_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mplanner.safe_clear: %f\033[0m", SAFE_CLEAR);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mplanner.obstacle_inflation_radius_cells: %d\033[0m",
+                obstacle_inflation_radius_cells_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mtree_depth: %d\033[0m", tree_depth);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mbranching_factor: %d\033[0m", branching_factor);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mmap_path: %s\033[0m", map_path_.c_str());
@@ -423,13 +440,15 @@ void path_planning::obstacle_info_callback(const path_planning_dynamic::msg::Obs
     }
     if (msg->obstacles.empty())
     {
-        RCLCPP_ERROR(this->get_logger(), "Obstacles are not available");
-        return;
+        RCLCPP_WARN(this->get_logger(), "Obstacle collection is empty; planning with base map only");
     }
-    std::cout << green << "Obstacles are available and global map is available" << reset << std::endl;
+    else
+    {
+        std::cout << green << "Obstacles are available and global map is available" << reset << std::endl;
+    }
     getCurrentRobotState();
     publishGlobalPlanner();
-    RCLCPP_INFO(this->get_logger(), "\033Obstacles are available and global map is available.\033[0m");
+    RCLCPP_INFO(this->get_logger(), "\033Path planning map combination update.\033[0m");
     map_combination(msg);
 }
 
@@ -459,6 +478,7 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
 {
 
     auto init_time = std::chrono::system_clock::now();
+    const auto current_stamp = this->now();
     // clean the rescaled_chunk_
     rescaled_chunk_->data.clear();
 
@@ -470,14 +490,6 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
     grid_map_origin.y = car_state_->y + forward_distance * sin(car_state_->heading);
     grid_map_origin.z = car_state_->z; // Same height as car's position
     grid_map_origin.heading = car_state_->heading;
-
-    State white_square;
-
-    // Calculate the position based on the car's heading
-    white_square.x = car_state_->x + forward_distance_square * cos(car_state_->heading);
-    white_square.y = car_state_->y + forward_distance_square * sin(car_state_->heading);
-    white_square.z = car_state_->z; // Same height as car's position
-    white_square.heading = car_state_->heading;
 
     // Convert car state to grid coordinates
     int car_x_grid = static_cast<int>((grid_map_origin.x - global_map_->info.origin.position.x) / global_map_->info.resolution);
@@ -539,11 +551,80 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
             rescaled_chunk_->data[i] = -1;
     }
 
+    const double cos_heading_window = cos(car_state_->heading);
+    const double sin_heading_window = sin(car_state_->heading);
+    const int car_x_rescaled = static_cast<int>((car_state_->x - rescaled_chunk_->info.origin.position.x) /
+                                                rescaled_chunk_->info.resolution);
+    const int car_y_rescaled = static_cast<int>((car_state_->y - rescaled_chunk_->info.origin.position.y) /
+                                                rescaled_chunk_->info.resolution);
+    const double half_size_meters = square_size_m_ / 2.0;
+
+    std::vector<cv::Point> window_polygon;
+    window_polygon.reserve(4);
+    const std::vector<std::pair<double, double>> corners = {
+        {-half_size_meters, -half_size_meters},
+        {half_size_meters, -half_size_meters},
+        {half_size_meters, half_size_meters},
+        {-half_size_meters, half_size_meters}
+    };
+
+    for (const auto &corner : corners) {
+        const double rotated_x = corner.first * cos_heading_window - corner.second * sin_heading_window;
+        const double rotated_y = corner.first * sin_heading_window + corner.second * cos_heading_window;
+
+        const int grid_x =
+            car_x_rescaled + static_cast<int>(std::round(rotated_x / rescaled_chunk_->info.resolution));
+        const int grid_y =
+            car_y_rescaled + static_cast<int>(std::round(rotated_y / rescaled_chunk_->info.resolution));
+        window_polygon.emplace_back(grid_x, grid_y);
+    }
+
+    cv::Mat window_mask(rescaled_chunk_->info.height, rescaled_chunk_->info.width, CV_8UC1, cv::Scalar(0));
+    cv::fillConvexPoly(window_mask, window_polygon, cv::Scalar(255));
+
+    nav_msgs::msg::OccupancyGrid dynamic_obstacle_grid = *rescaled_chunk_;
+    dynamic_obstacle_grid.header.stamp = current_stamp;
+    dynamic_obstacle_grid.data.assign(dynamic_obstacle_grid.info.width * dynamic_obstacle_grid.info.height, -1);
+    for (int y = 0; y < window_mask.rows; ++y)
+    {
+        for (int x = 0; x < window_mask.cols; ++x)
+        {
+            if (window_mask.at<uint8_t>(y, x) != 0)
+            {
+                dynamic_obstacle_grid.data[y * dynamic_obstacle_grid.info.width + x] = 0;
+            }
+        }
+    }
+    nav_msgs::msg::OccupancyGrid dynamic_global_obstacle_grid = *global_map_;
+    dynamic_global_obstacle_grid.header.stamp = current_stamp;
+
     auto mark_grid = [&](int x, int y, int value)
     {
-        if (x >= 0 && x < static_cast<int>(rescaled_chunk_->info.width) && y >= 0 && y < static_cast<int>(rescaled_chunk_->info.height))
+        if (x >= 0 && x < static_cast<int>(rescaled_chunk_->info.width) &&
+            y >= 0 && y < static_cast<int>(rescaled_chunk_->info.height) &&
+            window_mask.at<uint8_t>(y, x) != 0)
         {
             rescaled_chunk_->data[y * rescaled_chunk_->info.width + x] = value; // Mark the cell
+            dynamic_obstacle_grid.data[y * dynamic_obstacle_grid.info.width + x] = value;
+
+            const double world_x =
+                rescaled_chunk_->info.origin.position.x + (static_cast<double>(x) + 0.5) * rescaled_chunk_->info.resolution;
+            const double world_y =
+                rescaled_chunk_->info.origin.position.y + (static_cast<double>(y) + 0.5) * rescaled_chunk_->info.resolution;
+
+            const int global_x = static_cast<int>(std::floor(
+                (world_x - dynamic_global_obstacle_grid.info.origin.position.x) /
+                dynamic_global_obstacle_grid.info.resolution));
+            const int global_y = static_cast<int>(std::floor(
+                (world_y - dynamic_global_obstacle_grid.info.origin.position.y) /
+                dynamic_global_obstacle_grid.info.resolution));
+
+            if (global_x >= 0 && global_x < static_cast<int>(dynamic_global_obstacle_grid.info.width) &&
+                global_y >= 0 && global_y < static_cast<int>(dynamic_global_obstacle_grid.info.height))
+            {
+                dynamic_global_obstacle_grid
+                    .data[global_y * dynamic_global_obstacle_grid.info.width + global_x] = value;
+            }
         }
     };
 
@@ -588,7 +669,7 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
         }
     };
 
-    int inflation_radius = 2; // Inflated cells around the obstacles
+    const int inflation_radius = obstacle_inflation_radius_cells_;
     int value_to_mark = 100;
 
     // Transformation from lidar frame to map frame
@@ -685,63 +766,43 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
         fill_obstacle_interior(polygon_vertices, value_to_mark);
     }
 
-    // Calculate the car's position in the rescaled grid
-    double cos_heading_white = cos(white_square.heading);
-    double sin_heading_white = sin(white_square.heading);
-
-    int car_x_rescaled = static_cast<int>((white_square.x - rescaled_chunk_->info.origin.position.x) / rescaled_chunk_->info.resolution);
-    int car_y_rescaled = static_cast<int>((white_square.y - rescaled_chunk_->info.origin.position.y) / rescaled_chunk_->info.resolution);
-
-    // Create a solid white square around the car using rasterization
-    // This ensures complete coverage without gaps
-    double half_size_meters = (square_size * rescaled_chunk_->info.resolution) / 2.0;
-    
-    // Define the four corners of the square in world coordinates
-    std::vector<std::pair<double, double>> corners = {
-        {-half_size_meters, -half_size_meters},
-        {half_size_meters, -half_size_meters},
-        {half_size_meters, half_size_meters},
-        {-half_size_meters, half_size_meters}
-    };
-    
-    // Rotate corners and convert to grid coordinates
-    std::vector<std::pair<int, int>> grid_corners;
-    for (const auto& corner : corners) {
-        double rotated_x = corner.first * cos_heading_white - corner.second * sin_heading_white;
-        double rotated_y = corner.first * sin_heading_white + corner.second * cos_heading_white;
-        
-        int grid_x = car_x_rescaled + static_cast<int>(std::round(rotated_x / rescaled_chunk_->info.resolution));
-        int grid_y = car_y_rescaled + static_cast<int>(std::round(rotated_y / rescaled_chunk_->info.resolution));
-        
-        grid_corners.push_back({grid_x, grid_y});
-    }
-    
-    // Find bounding box for white square
-    int square_min_x = std::min({grid_corners[0].first, grid_corners[1].first, grid_corners[2].first, grid_corners[3].first});
-    int square_max_x = std::max({grid_corners[0].first, grid_corners[1].first, grid_corners[2].first, grid_corners[3].first});
-    int square_min_y = std::min({grid_corners[0].second, grid_corners[1].second, grid_corners[2].second, grid_corners[3].second});
-    int square_max_y = std::max({grid_corners[0].second, grid_corners[1].second, grid_corners[2].second, grid_corners[3].second});
-    
-    // Fill the bounding box with free space
-    for (int y = square_min_y; y <= square_max_y; ++y) {
-        for (int x = square_min_x; x <= square_max_x; ++x) {
-            if (x >= 0 && x < static_cast<int>(rescaled_chunk_->info.width) &&
-                y >= 0 && y < static_cast<int>(rescaled_chunk_->info.height)) {
-                rescaled_chunk_->data[y * rescaled_chunk_->info.width + x] = 0;
-            }
-        }
-    }
-
     buildDistanceField();
     buildWaypointDistanceFields();
     grid_map_ = std::make_shared<Grid_map>(*rescaled_chunk_);
     grid_map_->setVehicleFootprint(vehicle_footprint_);
 
-    // Publish the rescaled chunk
-    if (occupancy_grid_pub_test_->get_subscription_count() > 0)
+    nav_msgs::msg::OccupancyGrid published_dynamic_obstacle_grid = dynamic_obstacle_grid;
+    cv::Rect window_bounds = cv::boundingRect(window_polygon);
+    window_bounds &= cv::Rect(0, 0,
+                              static_cast<int>(dynamic_obstacle_grid.info.width),
+                              static_cast<int>(dynamic_obstacle_grid.info.height));
+    if (window_bounds.width > 0 && window_bounds.height > 0)
     {
-        occupancy_grid_pub_test_->publish(*rescaled_chunk_);
+        published_dynamic_obstacle_grid.info.width = static_cast<uint32_t>(window_bounds.width);
+        published_dynamic_obstacle_grid.info.height = static_cast<uint32_t>(window_bounds.height);
+        published_dynamic_obstacle_grid.info.origin.position.x +=
+            static_cast<double>(window_bounds.x) * dynamic_obstacle_grid.info.resolution;
+        published_dynamic_obstacle_grid.info.origin.position.y +=
+            static_cast<double>(window_bounds.y) * dynamic_obstacle_grid.info.resolution;
+        published_dynamic_obstacle_grid.data.assign(
+            published_dynamic_obstacle_grid.info.width * published_dynamic_obstacle_grid.info.height, -1);
+
+        for (int y = 0; y < window_bounds.height; ++y)
+        {
+            for (int x = 0; x < window_bounds.width; ++x)
+            {
+                const int src_x = window_bounds.x + x;
+                const int src_y = window_bounds.y + y;
+                published_dynamic_obstacle_grid.data[
+                    y * published_dynamic_obstacle_grid.info.width + x] =
+                    dynamic_obstacle_grid.data[src_y * dynamic_obstacle_grid.info.width + src_x];
+            }
+        }
     }
+
+    global_planner_occupancy_grid_ = dynamic_global_obstacle_grid;
+    occupancy_grid_pub_test_->publish(published_dynamic_obstacle_grid);
+    global_planner_occupancy_grid_publisher_->publish(global_planner_occupancy_grid_);
 
     // TreeFlat flat;
     // int best = generateTrajectoryTree_AStar_flat_map(*car_state_, flat);
@@ -777,6 +838,12 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
 {
     out.nodes.clear();
     out.leaves.clear();
+
+    std::size_t rejected_empty_rollout = 0;
+    std::size_t rejected_collision = 0;
+    std::size_t rejected_waypoint_clearance = 0;
+    std::size_t rejected_dominated_state = 0;
+    std::size_t accepted_children = 0;
 
     const int B = std::max(1, static_cast<int>(motion_primitives_.size()));
     const int D = std::max(0, tree_depth);
@@ -853,6 +920,7 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             kinematic_model_->rollout(parent.state, primitive, pathLength);
 
         if (rollout.samples.empty()) {
+            ++rejected_empty_rollout;
             return -1;
         }
 
@@ -866,7 +934,8 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             ns.gridy = std::get<1>(cell);
 
             if (grid_map_->isSingleStateCollisionFreeImproved(ns)) {
-                return -1;
+              ++rejected_collision;
+              return -1;
             }
 
             const double d = clearanceMeters(static_cast<int>(ns.gridx), static_cast<int>(ns.gridy));
@@ -875,6 +944,7 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             }
 
             if (use_waypoints && d < SAFE_CLEAR * 0.6) {
+                ++rejected_waypoint_clearance;
                 return -1;
             }
 
@@ -921,11 +991,13 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
         const LatticeKey ck = stateKey(child.state);
         auto it = best_g.find(ck);
         if (it != best_g.end() && g_child >= it->second - 1e-12) {
+            ++rejected_dominated_state;
             return -1;
         }
         best_g[ck] = g_child;
 
         out.nodes.push_back(std::move(child));
+        ++accepted_children;
         return static_cast<int>(out.nodes.size()) - 1;
     };
 
@@ -1011,6 +1083,14 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             out.leaves.push_back(best_goal_idx);
         }
     }
+
+    RCLCPP_DEBUG(
+        this->get_logger(),
+        "A* summary: best_idx=%d nodes=%zu leaves=%zu accepted=%zu reject_empty=%zu reject_collision=%zu reject_wp_clear=%zu reject_dominated=%zu safe_clear=%.3f inflation_cells=%d",
+        best_goal_idx, out.nodes.size(), out.leaves.size(), accepted_children,
+        rejected_empty_rollout, rejected_collision,
+        rejected_waypoint_clearance, rejected_dominated_state, SAFE_CLEAR,
+        obstacle_inflation_radius_cells_);
 
     return best_goal_idx;
 }

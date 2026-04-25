@@ -211,10 +211,8 @@ private:
     int tree_depth;        // Maximum depth of the tree (e.g., 3 levels)
     int branching_factor;  // Number of paths per node (e.g., 5)
 
-    // white square parameters
-    int square_size = 15; // Size of the square region in grid cells (covers car + margin)
-    int half_square = square_size / 2;
-    double forward_distance_square = 0.0; // this is for the white sqaure that ocloude the obstacles draw in the new map
+    // local planning window parameters
+    double square_size_m_ = 1.6; // Side length of the local planning window in meters
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr real_trajectories_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr car_analytics_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr real_trajectories_pub_2;
@@ -229,7 +227,8 @@ private:
 
     cv::Mat dist_m_; // distance matrix for the A* algorithm
 
-    double SAFE_CLEAR = 0.8;    // meters: half vehicle width + margin
+    double SAFE_CLEAR = 0.2;    // meters: half vehicle width + margin
+    int obstacle_inflation_radius_cells_ = 1; // inflated cells around detected obstacles
     double W_OBS      = 1.2;    // weight for clearance penalty
     double W_DSTEER   = 0.05;   // weight for smoothness (|Δsteer|)
 

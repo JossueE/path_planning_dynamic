@@ -6,13 +6,16 @@ path_planning_node:
     vehicle.width: 0.17               # Total vehicle width (m).
     planner.segment_steps: 4          # Number of rollout samples per motion primitive.
     planner.sample_distance: 0.05     # Distance advanced per rollout sample for forward primitives (m).
+    planner.square_size_m: 3.0        # Side length of the local planning window used for local occupancy reconstruction (m).
+    planner.safe_clear: 0.1           # Minimum clearance margin to obstacles used by the planner cost/rejection logic (m).
+    planner.obstacle_inflation_radius_cells: 0 # Extra obstacle inflation radius in local-grid cells.
     ackermann.wheelbase: 0.08         # Distance between front and rear axle (m).
     ackermann.max_steering_angle: 0.1 # Maximum steering angle of the front wheels (rad).
     differential.linear_step: 0.05    # Forward distance per rollout sample for moving differential primitives (m).
     differential.max_angular_step: 0.2 # Heading increment per rollout sample for differential primitives (rad).
     differential.angular_samples: 5   # Number of moving angular samples for the differential model.
     differential.include_in_place_rotation: true # Adds pure rotation primitives for the differential model.
-    tree_depth: 5                     # Maximum depth of the A* search tree for local path planning.
+    tree_depth: 7                     # Maximum depth of the A* search tree for local path planning.
     branching_factor: 5               # Number of possible branches (actions/commands) per tree level.
     map_path: package://autonomous_robot_simulation/utils/test.osm # Path to the Lanelet2 (.osm) map file.
     start_lanelet_id: 1379            # ID of the starting lanelet for the global planner.
@@ -30,8 +33,8 @@ path_planning_node:
 pointcloud_clustering_node:
   ros__parameters:
     GROUND_THRESHOLD: 0.1        # Threshold for separating ground vs non-ground points (height or z value).
-    CLUSTER_THRESH: 0.15          # Maximum distance between points to belong to the same cluster (m).
-    CLUSTER_MAX_SIZE: 6000       # Maximum allowed number of points in a cluster (filters overly large objects).
+    CLUSTER_THRESH: 0.10          # Maximum distance between points to belong to the same cluster (m).
+    CLUSTER_MAX_SIZE: 1000       # Maximum allowed number of points in a cluster (filters overly large objects).
     CLUSTER_MIN_SIZE: 30        # Minimum number of points to consider a valid cluster (filters noise).
     USE_PCA_BOX: false           # If true, use PCA to fit an oriented bounding box to clusters.
     DISPLACEMENT_THRESH: 0.5     # Maximum allowed displacement between consecutive detections for tracking (m).
