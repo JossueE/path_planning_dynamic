@@ -595,6 +595,36 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
             }
         }
     }
+
+    nav_msgs::msg::OccupancyGrid published_dynamic_obstacle_grid = dynamic_obstacle_grid;
+    cv::Rect window_bounds = cv::boundingRect(window_polygon);
+    window_bounds &= cv::Rect(0, 0,
+                              static_cast<int>(dynamic_obstacle_grid.info.width),
+                              static_cast<int>(dynamic_obstacle_grid.info.height));
+    if (window_bounds.width > 0 && window_bounds.height > 0)
+    {
+        published_dynamic_obstacle_grid.info.width = static_cast<uint32_t>(window_bounds.width);
+        published_dynamic_obstacle_grid.info.height = static_cast<uint32_t>(window_bounds.height);
+        published_dynamic_obstacle_grid.info.origin.position.x +=
+            static_cast<double>(window_bounds.x) * dynamic_obstacle_grid.info.resolution;
+        published_dynamic_obstacle_grid.info.origin.position.y +=
+            static_cast<double>(window_bounds.y) * dynamic_obstacle_grid.info.resolution;
+        published_dynamic_obstacle_grid.data.assign(
+            published_dynamic_obstacle_grid.info.width * published_dynamic_obstacle_grid.info.height, -1);
+
+        for (int y = 0; y < window_bounds.height; ++y)
+        {
+            for (int x = 0; x < window_bounds.width; ++x)
+            {
+                const int src_x = window_bounds.x + x;
+                const int src_y = window_bounds.y + y;
+                published_dynamic_obstacle_grid.data[
+                    y * published_dynamic_obstacle_grid.info.width + x] =
+                    dynamic_obstacle_grid.data[src_y * dynamic_obstacle_grid.info.width + src_x];
+            }
+        }
+    }
+
     nav_msgs::msg::OccupancyGrid dynamic_global_obstacle_grid = *global_map_;
     dynamic_global_obstacle_grid.header.stamp = current_stamp;
 
@@ -771,35 +801,6 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
     grid_map_ = std::make_shared<Grid_map>(*rescaled_chunk_);
     grid_map_->setVehicleFootprint(vehicle_footprint_);
 
-    nav_msgs::msg::OccupancyGrid published_dynamic_obstacle_grid = dynamic_obstacle_grid;
-    cv::Rect window_bounds = cv::boundingRect(window_polygon);
-    window_bounds &= cv::Rect(0, 0,
-                              static_cast<int>(dynamic_obstacle_grid.info.width),
-                              static_cast<int>(dynamic_obstacle_grid.info.height));
-    if (window_bounds.width > 0 && window_bounds.height > 0)
-    {
-        published_dynamic_obstacle_grid.info.width = static_cast<uint32_t>(window_bounds.width);
-        published_dynamic_obstacle_grid.info.height = static_cast<uint32_t>(window_bounds.height);
-        published_dynamic_obstacle_grid.info.origin.position.x +=
-            static_cast<double>(window_bounds.x) * dynamic_obstacle_grid.info.resolution;
-        published_dynamic_obstacle_grid.info.origin.position.y +=
-            static_cast<double>(window_bounds.y) * dynamic_obstacle_grid.info.resolution;
-        published_dynamic_obstacle_grid.data.assign(
-            published_dynamic_obstacle_grid.info.width * published_dynamic_obstacle_grid.info.height, -1);
-
-        for (int y = 0; y < window_bounds.height; ++y)
-        {
-            for (int x = 0; x < window_bounds.width; ++x)
-            {
-                const int src_x = window_bounds.x + x;
-                const int src_y = window_bounds.y + y;
-                published_dynamic_obstacle_grid.data[
-                    y * published_dynamic_obstacle_grid.info.width + x] =
-                    dynamic_obstacle_grid.data[src_y * dynamic_obstacle_grid.info.width + src_x];
-            }
-        }
-    }
-
     global_planner_occupancy_grid_ = dynamic_global_obstacle_grid;
     occupancy_grid_pub_test_->publish(published_dynamic_obstacle_grid);
     global_planner_occupancy_grid_publisher_->publish(global_planner_occupancy_grid_);
@@ -838,12 +839,6 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
 {
     out.nodes.clear();
     out.leaves.clear();
-
-    std::size_t rejected_empty_rollout = 0;
-    std::size_t rejected_collision = 0;
-    std::size_t rejected_waypoint_clearance = 0;
-    std::size_t rejected_dominated_state = 0;
-    std::size_t accepted_children = 0;
 
     const int B = std::max(1, static_cast<int>(motion_primitives_.size()));
     const int D = std::max(0, tree_depth);
@@ -920,7 +915,6 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             kinematic_model_->rollout(parent.state, primitive, pathLength);
 
         if (rollout.samples.empty()) {
-            ++rejected_empty_rollout;
             return -1;
         }
 
@@ -934,7 +928,6 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             ns.gridy = std::get<1>(cell);
 
             if (grid_map_->isSingleStateCollisionFreeImproved(ns)) {
-              ++rejected_collision;
               return -1;
             }
 
@@ -944,7 +937,6 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             }
 
             if (use_waypoints && d < SAFE_CLEAR * 0.6) {
-                ++rejected_waypoint_clearance;
                 return -1;
             }
 
@@ -991,13 +983,11 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
         const LatticeKey ck = stateKey(child.state);
         auto it = best_g.find(ck);
         if (it != best_g.end() && g_child >= it->second - 1e-12) {
-            ++rejected_dominated_state;
             return -1;
         }
         best_g[ck] = g_child;
 
         out.nodes.push_back(std::move(child));
-        ++accepted_children;
         return static_cast<int>(out.nodes.size()) - 1;
     };
 
@@ -1083,14 +1073,6 @@ int path_planning::generateTrajectoryTreeImpl(const State& root_state, TreeFlat&
             out.leaves.push_back(best_goal_idx);
         }
     }
-
-    RCLCPP_DEBUG(
-        this->get_logger(),
-        "A* summary: best_idx=%d nodes=%zu leaves=%zu accepted=%zu reject_empty=%zu reject_collision=%zu reject_wp_clear=%zu reject_dominated=%zu safe_clear=%.3f inflation_cells=%d",
-        best_goal_idx, out.nodes.size(), out.leaves.size(), accepted_children,
-        rejected_empty_rollout, rejected_collision,
-        rejected_waypoint_clearance, rejected_dominated_state, SAFE_CLEAR,
-        obstacle_inflation_radius_cells_);
 
     return best_goal_idx;
 }
