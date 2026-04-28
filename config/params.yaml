@@ -7,8 +7,8 @@ path_planning_node:
     planner.segment_steps: 4          # Number of rollout samples per motion primitive.
     planner.sample_distance: 0.05     # Distance advanced per rollout sample for forward primitives (m).
     planner.square_size_m: 3.0        # Side length of the local planning window used for local occupancy reconstruction (m).
-    planner.safe_clear: 0.1           # Minimum clearance margin to obstacles used by the planner cost/rejection logic (m).
-    planner.obstacle_inflation_radius_cells: 0 # Extra obstacle inflation radius in local-grid cells.
+    planner.safe_clear: 0.2           # Minimum clearance margin to obstacles used by the planner cost/rejection logic (m).
+    planner.obstacle_inflation_radius_cells: 1 # Extra obstacle inflation radius in local-grid cells.
     ackermann.wheelbase: 0.08         # Distance between front and rear axle (m).
     ackermann.max_steering_angle: 0.1 # Maximum steering angle of the front wheels (rad).
     differential.linear_step: 0.05    # Forward distance per rollout sample for moving differential primitives (m).
@@ -33,9 +33,11 @@ path_planning_node:
 pointcloud_clustering_node:
   ros__parameters:
     GROUND_THRESHOLD: 0.1        # Threshold for separating ground vs non-ground points (height or z value).
-    CLUSTER_THRESH: 0.10          # Maximum distance between points to belong to the same cluster (m).
-    CLUSTER_MAX_SIZE: 1000       # Maximum allowed number of points in a cluster (filters overly large objects).
-    CLUSTER_MIN_SIZE: 30        # Minimum number of points to consider a valid cluster (filters noise).
+    CLUSTER_THRESH: 0.10          # Maximum distance between points to belong to the same cluster (m). Applies before convex or concave hull generation.
+    CLUSTER_MAX_SIZE: 1000       # Maximum allowed number of points in a cluster (filters overly large objects). Applies before convex or concave hull generation.
+    CLUSTER_MIN_SIZE: 30        # Minimum number of points to consider a valid cluster (filters noise). Applies before convex or concave hull generation.
+    HULL_MODE: "concave"          # Hull generation mode: "convex" or "concave".
+    CONCAVE_ALPHA: 0.15          # Concavity tuning used only when HULL_MODE is "concave".
     USE_PCA_BOX: false           # If true, use PCA to fit an oriented bounding box to clusters.
     DISPLACEMENT_THRESH: 0.5     # Maximum allowed displacement between consecutive detections for tracking (m).
     IOU_THRESH: 0.7              # IoU threshold to associate clusters across frames (for object tracking).

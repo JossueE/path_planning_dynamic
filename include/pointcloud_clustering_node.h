@@ -9,6 +9,7 @@
 
 // PCL
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/surface/concave_hull.h>
 #include <pcl/surface/convex_hull.h>
 
 // Custom msgs path_planning_dynamic for Obstacle and ObstacleCollection
@@ -39,11 +40,13 @@ private:
     double CLUSTER_THRESH;
     int CLUSTER_MAX_SIZE;
     int CLUSTER_MIN_SIZE;
+    double CONCAVE_ALPHA;
     bool USE_PCA_BOX;
     double DISPLACEMENT_THRESH;
     double IOU_THRESH;
     bool USE_TRACKING;
     std::string FRAME_ID;
+    std::string HULL_MODE;
 
     std::shared_ptr<lidar_obstacle_detector::ObstacleDetector<pcl::PointXYZ>> obstacle_detector;
     path_planning_dynamic::msg::ObstacleCollection obstacle_collection;
@@ -51,6 +54,7 @@ private:
     // Point Cloud callback
     void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_clusters);
+    void concave_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_clusters);
     void imaginaryObstacle();
 
     // subscriber & publisher
