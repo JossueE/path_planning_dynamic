@@ -596,35 +596,6 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
         }
     }
 
-    nav_msgs::msg::OccupancyGrid published_dynamic_obstacle_grid = dynamic_obstacle_grid;
-    cv::Rect window_bounds = cv::boundingRect(window_polygon);
-    window_bounds &= cv::Rect(0, 0,
-                              static_cast<int>(dynamic_obstacle_grid.info.width),
-                              static_cast<int>(dynamic_obstacle_grid.info.height));
-    if (window_bounds.width > 0 && window_bounds.height > 0)
-    {
-        published_dynamic_obstacle_grid.info.width = static_cast<uint32_t>(window_bounds.width);
-        published_dynamic_obstacle_grid.info.height = static_cast<uint32_t>(window_bounds.height);
-        published_dynamic_obstacle_grid.info.origin.position.x +=
-            static_cast<double>(window_bounds.x) * dynamic_obstacle_grid.info.resolution;
-        published_dynamic_obstacle_grid.info.origin.position.y +=
-            static_cast<double>(window_bounds.y) * dynamic_obstacle_grid.info.resolution;
-        published_dynamic_obstacle_grid.data.assign(
-            published_dynamic_obstacle_grid.info.width * published_dynamic_obstacle_grid.info.height, -1);
-
-        for (int y = 0; y < window_bounds.height; ++y)
-        {
-            for (int x = 0; x < window_bounds.width; ++x)
-            {
-                const int src_x = window_bounds.x + x;
-                const int src_y = window_bounds.y + y;
-                published_dynamic_obstacle_grid.data[
-                    y * published_dynamic_obstacle_grid.info.width + x] =
-                    dynamic_obstacle_grid.data[src_y * dynamic_obstacle_grid.info.width + src_x];
-            }
-        }
-    }
-
     nav_msgs::msg::OccupancyGrid dynamic_global_obstacle_grid = *global_map_;
     dynamic_global_obstacle_grid.header.stamp = current_stamp;
 
@@ -794,6 +765,35 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
         
         // Fill the interior of the obstacle with dark grid (value 100)
         fill_obstacle_interior(polygon_vertices, value_to_mark);
+    }
+
+    nav_msgs::msg::OccupancyGrid published_dynamic_obstacle_grid = dynamic_obstacle_grid;
+    cv::Rect window_bounds = cv::boundingRect(window_polygon);
+    window_bounds &= cv::Rect(0, 0,
+                              static_cast<int>(dynamic_obstacle_grid.info.width),
+                              static_cast<int>(dynamic_obstacle_grid.info.height));
+    if (window_bounds.width > 0 && window_bounds.height > 0)
+    {
+        published_dynamic_obstacle_grid.info.width = static_cast<uint32_t>(window_bounds.width);
+        published_dynamic_obstacle_grid.info.height = static_cast<uint32_t>(window_bounds.height);
+        published_dynamic_obstacle_grid.info.origin.position.x +=
+            static_cast<double>(window_bounds.x) * dynamic_obstacle_grid.info.resolution;
+        published_dynamic_obstacle_grid.info.origin.position.y +=
+            static_cast<double>(window_bounds.y) * dynamic_obstacle_grid.info.resolution;
+        published_dynamic_obstacle_grid.data.assign(
+            published_dynamic_obstacle_grid.info.width * published_dynamic_obstacle_grid.info.height, -1);
+
+        for (int y = 0; y < window_bounds.height; ++y)
+        {
+            for (int x = 0; x < window_bounds.width; ++x)
+            {
+                const int src_x = window_bounds.x + x;
+                const int src_y = window_bounds.y + y;
+                published_dynamic_obstacle_grid.data[
+                    y * published_dynamic_obstacle_grid.info.width + x] =
+                    dynamic_obstacle_grid.data[src_y * dynamic_obstacle_grid.info.width + src_x];
+            }
+        }
     }
 
     buildDistanceField();
