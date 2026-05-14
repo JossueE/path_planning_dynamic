@@ -22,6 +22,8 @@ path_planning_node:
     end_lanelet_id: 1335              # ID of the goal lanelet for the global planner.
     x_offset: 0.0                     # X offset to align map and robot frame (m).
     y_offset: 0.0                     # Y offset to align map and robot frame (m).
+    z_offset: -2.10                   # Z offset applied to TF pose to match lanelet map z projection (m). DO NOT MODIFY UNLESS YOUR MAP HAS A DIFFERENT Z PROJECTION.
+    pose_frame: "lidar_link"          # TF frame used to estimate the planner pose in the map frame.
     num_lateral_offsets: 0            # Number of lateral offsets to generate alternative lanes (0 = only center lane).
     global_planner_resolution: 0.2         # Resolution of the global planner grid (m).
     global_planner_close_radius: 1         # Radius around the robot to consider as "close" for the global planner (m).

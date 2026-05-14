@@ -51,6 +51,8 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     this->declare_parameter<std::string>("map_path", "");
     this->declare_parameter<double>("x_offset", 0.0);
     this->declare_parameter<double>("y_offset", 0.0);
+    this->declare_parameter<double>("z_offset", 0.0);
+    this->declare_parameter<std::string>("pose_frame", "lidar_link");
     this->declare_parameter<int>("start_lanelet_id", 0);
     this->declare_parameter<int>("end_lanelet_id", 0);
 
@@ -113,6 +115,8 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     this->get_parameter("map_path", map_path_);
     this->get_parameter("x_offset", x_offset_);
     this->get_parameter("y_offset", y_offset_);
+    this->get_parameter("z_offset", z_offset_);
+    this->get_parameter("pose_frame", pose_frame_);
     this->get_parameter("start_lanelet_id", start_lanelet_id_);
     this->get_parameter("end_lanelet_id", end_lanelet_id_);
 
@@ -222,6 +226,8 @@ path_planning::path_planning() : Node("path_planning"), tf2_buffer(this->get_clo
     RCLCPP_INFO(this->get_logger(), "\033[1;34mmap_path: %s\033[0m", map_path_.c_str());
     RCLCPP_INFO(this->get_logger(), "\033[1;34mx_offset: %f\033[0m", x_offset_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34my_offset: %f\033[0m", y_offset_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mz_offset: %f\033[0m", z_offset_);
+    RCLCPP_INFO(this->get_logger(), "\033[1;34mpose_frame: %s\033[0m", pose_frame_.c_str());
     RCLCPP_INFO(this->get_logger(), "\033[1;34mstart_lanelet_id: %d\033[0m", start_lanelet_id_);
     RCLCPP_INFO(this->get_logger(), "\033[1;34mend_lanelet_id: %d\033[0m", end_lanelet_id_);
 
@@ -248,20 +254,21 @@ void path_planning::getCurrentRobotState()
     geometry_msgs::msg::Transform pose_tf;
     try
     {
-        pose_tf = tf2_buffer.lookupTransform("map", "lidar_link", tf2::TimePointZero).transform;
+        pose_tf = tf2_buffer.lookupTransform("map", pose_frame_, tf2::TimePointZero).transform;
         car_state_->x = pose_tf.translation.x;
         car_state_->y = pose_tf.translation.y;
-        car_state_->z = pose_tf.translation.z - 2.10;
+        car_state_->z = pose_tf.translation.z + z_offset_;
         tf2::Quaternion quat;
         tf2::fromMsg(pose_tf.rotation, quat);
         double roll, pitch, yaw;
         tf2::Matrix3x3(quat).getRPY(roll, pitch, yaw);
         car_state_->heading = yaw;
+        car_state_valid_ = true;
     }
-
     catch (tf2::TransformException &ex)
     {
         std::cout << red << "Transform error: " << ex.what() << reset << std::endl;
+        car_state_valid_ = false;
     }
 }
 
@@ -476,6 +483,12 @@ cv::Mat path_planning::rescaleChunk(const cv::Mat &chunk_mat, double scale_facto
 
 void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCollection::SharedPtr msg)
 {
+    if (!car_state_valid_)
+    {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+            "Skipping map_combination: robot pose not yet available (TF lookup failed).");
+        return;
+    }
 
     auto init_time = std::chrono::system_clock::now();
     const auto current_stamp = this->now();

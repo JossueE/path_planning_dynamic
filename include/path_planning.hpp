@@ -158,6 +158,9 @@ private:
 
     // State
     std::shared_ptr<State> car_state_;
+    bool car_state_valid_ = false;
+    std::string pose_frame_;
+    double z_offset_;
 
     // global map and rescaled chunk 
     std::shared_ptr<nav_msgs::msg::OccupancyGrid> global_map_;
