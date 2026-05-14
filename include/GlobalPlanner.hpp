@@ -68,7 +68,6 @@ private:
     // Occupancy grid helper functions
     void generateOccupancyGrid(lanelet::LaneletMapPtr &t_map);
     void worldToGrid(double wx, double wy, double min_x, double min_y, int &gx, int &gy) const;
-    void drawLine(int x0, int y0, int x1, int y1, int width, int height, std::vector<int8_t> &data, int8_t value) const;
     void morphClose(std::vector<int8_t> &data, int width, int height, int radius, int iters) const;
     void fillLaneletPolygon(const std::vector<lanelet::ConstPoint3d> &points, int width, int height, 
                             double min_x, double min_y, std::vector<int8_t> &grid, int8_t value) const;

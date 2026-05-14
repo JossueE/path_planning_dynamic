@@ -7,8 +7,6 @@
 
 #include "State.h"
 
-enum class KinematicModelType { Ackermann, Differential };
-
 struct MotionPrimitive {
   double linear_step{0.0};
   double angular_step{0.0};
@@ -37,8 +35,6 @@ class KinematicModel {
 public:
   virtual ~KinematicModel() = default;
 
-  [[nodiscard]] virtual KinematicModelType type() const = 0;
-  [[nodiscard]] virtual std::string name() const = 0;
   [[nodiscard]] virtual std::vector<MotionPrimitive>
   buildMotionPrimitives(int branching_factor) const = 0;
   [[nodiscard]] virtual RolloutResult rollout(const State &start,
@@ -56,8 +52,6 @@ class AckermannKinematicModel final : public KinematicModel {
 public:
   explicit AckermannKinematicModel(const AckermannKinematicsConfig &config);
 
-  [[nodiscard]] KinematicModelType type() const override;
-  [[nodiscard]] std::string name() const override;
   [[nodiscard]] std::vector<MotionPrimitive>
   buildMotionPrimitives(int branching_factor) const override;
   [[nodiscard]] RolloutResult rollout(const State &start,
@@ -79,8 +73,6 @@ public:
   explicit DifferentialKinematicModel(
       const DifferentialKinematicsConfig &config);
 
-  [[nodiscard]] KinematicModelType type() const override;
-  [[nodiscard]] std::string name() const override;
   [[nodiscard]] std::vector<MotionPrimitive>
   buildMotionPrimitives(int branching_factor) const override;
   [[nodiscard]] RolloutResult rollout(const State &start,

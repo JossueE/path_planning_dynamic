@@ -2,37 +2,20 @@
 #define POINTCLOUD_ROI_NODE_H
 
 #include <rclcpp/rclcpp.hpp>
-
-// Ros2
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
-// PCL
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
-#include <pcl/common/common.h>
+#include <pcl/common/centroid.h>
 #include <pcl/common/transforms.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/crop_box.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 
-#include <pcl/search/search.h>
-#include <pcl/search/kdtree.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/visualization/cloud_viewer.h>
-#include <pcl/filters/filter_indices.h>
-#include <pcl/segmentation/region_growing.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/segmentation/sac_segmentation.h>
-
-// C++
-#include <iostream>
-#include <vector>
 #include <algorithm>
-#include <iostream>
-
-// Eigen
 #include <Eigen/Dense>
+#include <string>
 
 class pointcloud_roi_node : public rclcpp::Node
 {

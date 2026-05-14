@@ -31,12 +31,6 @@ AckermannKinematicModel::AckermannKinematicModel(
   }
 }
 
-KinematicModelType AckermannKinematicModel::type() const {
-  return KinematicModelType::Ackermann;
-}
-
-std::string AckermannKinematicModel::name() const { return "ackermann"; }
-
 std::vector<MotionPrimitive>
 AckermannKinematicModel::buildMotionPrimitives(int branching_factor) const {
   std::vector<MotionPrimitive> primitives;
@@ -107,12 +101,6 @@ DifferentialKinematicModel::DifferentialKinematicModel(
     throw std::invalid_argument("Differential max_angular_step must be >= 0");
   }
 }
-
-KinematicModelType DifferentialKinematicModel::type() const {
-  return KinematicModelType::Differential;
-}
-
-std::string DifferentialKinematicModel::name() const { return "differential"; }
 
 std::vector<MotionPrimitive>
 DifferentialKinematicModel::buildMotionPrimitives(int branching_factor) const {

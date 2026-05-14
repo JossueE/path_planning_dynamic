@@ -3,11 +3,10 @@
 // RORS2
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
-#include <visualization_msgs/msg/marker.hpp>
-#include <geometry_msgs/msg/point.hpp>
 
 // PCL
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/surface/concave_hull.h>
 #include <pcl/surface/convex_hull.h>
@@ -19,7 +18,6 @@
 #include "obstacle_detector.hpp"
 
 #include <vector>
-#include <chrono>
 #include <iostream>
 
 using namespace std;
@@ -59,10 +57,7 @@ private:
 
     // subscriber & publisher
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_points_cloud_;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr hull_publisher_;
     rclcpp::Publisher<path_planning_dynamic::msg::ObstacleCollection>::SharedPtr obstacle_info_publisher_;
-
-    std_msgs::msg::Header last_cloud_header_;
 
 public:
     pointcloud_clustering_node(/* args */);

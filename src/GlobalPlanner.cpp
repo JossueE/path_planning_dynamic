@@ -114,7 +114,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
         
         // Calculate cumulative distance and add waypoints at intervals
         double cumulative_distance = 0.0;
-        lanelet::ConstPoint3d last_waypoint = points[0];
         
         for (size_t i = 1; i < points.size(); ++i)
         {
@@ -134,7 +133,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
             {
                 waypoints.push_back(current_point);
                 cumulative_distance = 0.0;
-                last_waypoint = current_point;
             }
         }
         
@@ -278,7 +276,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
             
             // Calculate cumulative distance and add waypoints at intervals
             double cumulative_distance = 0.0;
-            lanelet::ConstPoint3d last_waypoint = points[0];
             
             for (size_t i = 1; i < points.size(); ++i)
             {
@@ -298,7 +295,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
                 {
                     waypoints.push_back(current_point);
                     cumulative_distance = 0.0;
-                    last_waypoint = current_point;
                 }
             }
             
@@ -419,7 +415,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
             
             // Calculate cumulative distance and add waypoints at intervals
             double cumulative_distance = 0.0;
-            lanelet::ConstPoint3d last_waypoint = points[0];
             
 
             for (size_t i = 1; i < points.size(); ++i)
@@ -440,7 +435,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
                 {
                     waypoints.push_back(current_point);
                     cumulative_distance = 0.0;
-                    last_waypoint = current_point;
                 }
             }
             
@@ -561,7 +555,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
             lanelet_id = adjacent_lanelet.id();
             // Calculate cumulative distance and add waypoints at intervals
             double cumulative_distance = 0.0;
-            lanelet::ConstPoint3d last_waypoint = points[0];
             
             for (size_t i = 1; i < points.size(); ++i)
             {
@@ -581,7 +574,6 @@ void GlobalPlanner::generateNeighborWaypoints(lanelet::LaneletMapPtr &map, routi
                 {
                     waypoints.push_back(current_point);
                     cumulative_distance = 0.0;
-                    last_waypoint = current_point;
                 }
             }
             
@@ -914,10 +906,6 @@ bool GlobalPlanner::isCompatibleTrajectory(const lanelet::ConstLanelet &path_lan
     double avg_cross = cumulative_cross / valid_samples;
     
     std::cout << yellow << "    Turn analysis: avg_cross=" << avg_cross << reset << std::endl;
-    
-    // Get the lanelets that follow the candidate
-    auto candidate_following = routingGraph->following(candidate_lanelet, true);
-    auto candidate_previous = routingGraph->previous(candidate_lanelet, true);
     
     // Find the current path lanelet index
     int current_path_index = -1;
@@ -1730,26 +1718,6 @@ void GlobalPlanner::worldToGrid(double wx, double wy, double min_x, double min_y
 {
   gx = static_cast<int>(std::floor((wx - min_x) / resolution_));
   gy = static_cast<int>(std::floor((wy - min_y) / resolution_));
-}
-
-void GlobalPlanner::drawLine(int x0, int y0, int x1, int y1, int width, int height,
-                             std::vector<int8_t> &data, int8_t value) const
-{
-  auto inBounds = [&](int x, int y) { return x >= 0 && x < width && y >= 0 && y < height; };
-  
-  int dx = std::abs(x1 - x0), sx = (x0 < x1) ? 1 : -1;
-  int dy = -std::abs(y1 - y0), sy = (y0 < y1) ? 1 : -1;
-  int err = dx + dy;
-  int x = x0, y = y0;
-  
-  while (true)
-  {
-    if (inBounds(x, y)) data[y * width + x] = value;
-    if (x == x1 && y == y1) break;
-    int e2 = 2 * err;
-    if (e2 >= dy) { err += dy; x += sx; }
-    if (e2 <= dx) { err += dx; y += sy; }
-  }
 }
 
 void GlobalPlanner::morphClose(std::vector<int8_t> &data, int width, int height, int radius, int iters) const

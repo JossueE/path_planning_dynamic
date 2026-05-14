@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <geometry_msgs/msg/point32.hpp>
+#include <geometry_msgs/msg/polygon.hpp>
 
 namespace
 {
@@ -84,7 +86,6 @@ pointcloud_clustering_node::pointcloud_clustering_node(/* args */) : Node("point
 
     // Create subscriber
     sub_points_cloud_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/points_rotated_notground", 10, std::bind(&pointcloud_clustering_node::pointCloudCallback, this, std::placeholders::_1));
-    // hull_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/hull_marker", 10);
     obstacle_info_publisher_ = this->create_publisher<path_planning_dynamic::msg::ObstacleCollection>("/obstacle_info", 10);
 
     // Create point processor
@@ -124,9 +125,7 @@ void pointcloud_clustering_node::pointCloudCallback(const sensor_msgs::msg::Poin
     //std::cout << red << "NOT Received empty point cloud" << reset << std::endl;
     try
     {
-        auto cloud_clusters = obstacle_detector->clustering(input_cloud, CLUSTER_THRESH, CLUSTER_MIN_SIZE, CLUSTER_MAX_SIZE);
-        auto &clusters = cloud_clusters.first;
-        auto &centroids = cloud_clusters.second;
+        auto clusters = obstacle_detector->clustering(input_cloud, CLUSTER_THRESH, CLUSTER_MIN_SIZE, CLUSTER_MAX_SIZE);
 
         if (!clusters.empty())
         {
@@ -155,7 +154,6 @@ void pointcloud_clustering_node::pointCloudCallback(const sensor_msgs::msg::Poin
 void pointcloud_clustering_node::convex_hull(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloud_clusters)
 {
 
-    visualization_msgs::msg::MarkerArray hull_markers;
     obstacle_collection.obstacles.clear();
 
     obstacle_collection.header.stamp = rclcpp::Clock{}.now();
@@ -192,30 +190,12 @@ void pointcloud_clustering_node::convex_hull(std::vector<pcl::PointCloud<pcl::Po
 
             obstacle_collection.obstacles.push_back(obstacle);
 
-            // Create a marker for the convex hull
-            // visualization_msgs::msg::Marker hull_marker;
-            // hull_marker.header.frame_id = FRAME_ID;
-            // hull_marker.header.stamp = this->now();
-            // hull_marker.ns = "hull";
-            // hull_marker.id = index;
-            // hull_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-            // hull_marker.action = visualization_msgs::msg::Marker::ADD;
-            // hull_marker.scale.x = 0.07;
-            // hull_marker.color.r = 1.0;
-            // hull_marker.color.g = 1.0;
-            // hull_marker.color.b = 1.0;
-            // hull_marker.color.a = 1.0;
-            // hull_marker.points = hull_points;
-
-            // hull_markers.markers.push_back(hull_marker);
-
             index++;
         }
     }
     // Publish the convex hull
     if (!obstacle_collection.obstacles.empty())
     {
-        // hull_publisher_->publish(hull_markers);
         std::cout << yellow << "Convex hull markers published" << reset << std::endl;
         // size of the obstacle collection
         std::cout << yellow << "Obstacle collection size: " << obstacle_collection.obstacles.size() << reset << std::endl;

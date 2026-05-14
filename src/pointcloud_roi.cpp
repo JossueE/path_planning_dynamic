@@ -1,5 +1,7 @@
 #include "pointcloud_roi_node.h"
 
+#include <cmath>
+
 pointcloud_roi_node::pointcloud_roi_node(/* args */) : Node("pointcloud_roi_node")
 {
 
@@ -154,8 +156,6 @@ void pointcloud_roi_node::pointCloudCallback(const sensor_msgs::msg::PointCloud2
         return;
     }
 
-    // auto init_time = std::chrono::system_clock::now();
-
     pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZI>());
     pcl::fromROSMsg(*msg, *input_cloud);
 
@@ -190,7 +190,6 @@ void pointcloud_roi_node::pointCloudCallback(const sensor_msgs::msg::PointCloud2
         vg.filter(*filtered_cloud);
 
         // Separate ground and non-ground points
-        // pcl::PointCloud<pcl::PointXYZI>::Ptr ground_points(new pcl::PointCloud<pcl::PointXYZI>());
         pcl::PointCloud<pcl::PointXYZI>::Ptr notground_points(new pcl::PointCloud<pcl::PointXYZI>());
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr seed_points(new pcl::PointCloud<pcl::PointXYZI>());
@@ -229,10 +228,6 @@ void pointcloud_roi_node::pointCloudCallback(const sensor_msgs::msg::PointCloud2
     robot_marker.header.frame_id = msg->header.frame_id; // Use the same frame as the pointcloud
     robot_marker.header.stamp = msg->header.stamp;
     pub_marker_->publish(robot_marker);
-
-    //auto end_time = std::chrono::system_clock::now();
-    //auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - init_time).count();
-    //std::cout << blue << "Execution time for path creation: " << duration << " ms" << reset << std::endl;
 }
 
 pointcloud_roi_node::Model pointcloud_roi_node::estimatePlane(const pcl::PointCloud<pcl::PointXYZI> &seed_points)

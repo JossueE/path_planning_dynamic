@@ -2,11 +2,6 @@
 
 #include <cmath>
 
-VehicleFootprint::VehicleFootprint(double axle_to_front, double axle_to_back,
-                                   double width) {
-  setDimensions(axle_to_front, axle_to_back, width);
-}
-
 void VehicleFootprint::setDimensions(double axle_to_front, double axle_to_back,
                                      double width) {
   axle_to_front_ = axle_to_front;
@@ -40,20 +35,6 @@ void VehicleFootprint::createGeometry() {
   vehicle_geometry_.points.push_back(p1);
 
   setCircles();
-}
-
-geometry_msgs::msg::Polygon
-VehicleFootprint::getGeometryAtState(const State &state) const {
-  geometry_msgs::msg::Polygon vehicle_poly_state;
-  for (const auto &point : vehicle_geometry_.points) {
-    geometry_msgs::msg::Point32 p;
-    p.x = state.x + point.x * std::cos(state.heading) -
-          point.y * std::sin(state.heading);
-    p.y = state.y + point.x * std::sin(state.heading) +
-          point.y * std::cos(state.heading);
-    vehicle_poly_state.points.push_back(p);
-  }
-  return vehicle_poly_state;
 }
 
 std::vector<Circle> VehicleFootprint::getCircles(const State &state) const {

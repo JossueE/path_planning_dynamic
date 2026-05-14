@@ -12,7 +12,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(vision_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -24,7 +23,6 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(polygon_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-find_package(image_geometry REQUIRED) 
 
 set(MSG_FILES
   "msg/Obstacle.msg"
@@ -87,10 +85,6 @@ ament_target_dependencies(pointcloud_clustering_node
   std_msgs
   grid_map_ros
   sensor_msgs
-  message_filters
-  vision_msgs
-  visualization_msgs
-  tf2_ros
   geometry_msgs
   pcl_conversions
 ) 
@@ -100,10 +94,6 @@ ament_target_dependencies(pointcloud_roi_node
   std_msgs
   grid_map_ros
   sensor_msgs
-  message_filters
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
   pcl_conversions
   visualization_msgs
 )
@@ -169,13 +159,11 @@ target_link_libraries(path_planning_node
 
 target_link_libraries(pointcloud_clustering_node
   ${PCL_LIBRARIES}
-  ${OpenCV_LIBS}
   Eigen3::Eigen
 )
 
 target_link_libraries(pointcloud_roi_node
   ${PCL_LIBRARIES}
-  ${OpenCV_LIBS}
   Eigen3::Eigen
 )
 
