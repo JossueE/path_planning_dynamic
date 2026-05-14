@@ -27,9 +27,6 @@
 #include "path_planning_dynamic/msg/road_elements.hpp"
 #include "path_planning_dynamic/msg/road_elements_collection.hpp"
 
-// STA collision checker
-#include "sat_collision_checker.h"
-
 // Kinematics and vehicle geometry
 #include "kinematic_models.hpp"
 #include "vehicle_footprint.hpp"
@@ -134,8 +131,6 @@ private:
     // tf2 buffer & listener
     tf2_ros::Buffer tf2_buffer;
     tf2_ros::TransformListener tf2_listener;
-
-    fop::SATCollisionChecker collision_checker; // Collision checker
 
     // vehicle geometry and kinematics
     VehicleFootprint vehicle_footprint_;
