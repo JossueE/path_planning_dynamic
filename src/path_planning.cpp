@@ -1,6 +1,9 @@
 #include <path_planning.hpp>
 
+#include <chrono>
 #include <cctype>
+#include <functional>
+#include <iostream>
 
 namespace {
 
@@ -818,10 +821,6 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
     occupancy_grid_pub_test_->publish(published_dynamic_obstacle_grid);
     global_planner_occupancy_grid_publisher_->publish(global_planner_occupancy_grid_);
 
-    // TreeFlat flat;
-    // int best = generateTrajectoryTree_AStar_flat_map(*car_state_, flat);
-    // publishBestPathFromFlat(flat, best, 1); // green color for the flat implementation
-
     TreeFlat flat_map;
     int best_map = generateTrajectoryTree_AStar_flat_map_with_waypoints(*car_state_, flat_map);
     publishBestPathFromFlat(flat_map, best_map, 2); // blue color for the A* implementation with waypoints
@@ -831,18 +830,13 @@ void path_planning::map_combination(const path_planning_dynamic::msg::ObstacleCo
 
     auto end_time = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - init_time).count();
-    cout << blue << "Execution time for path selection: " << duration << " ms" << reset << endl;
+    std::cout << blue << "Execution time for path selection: " << duration << " ms" << reset << std::endl;
 }
 
   
 // =============================
 // generate the trajectory based on the A* algorithm
 // =============================
-int path_planning::generateTrajectoryTree_AStar_flat_map(const State& root_state, TreeFlat& out)
-{
-    return generateTrajectoryTreeImpl(root_state, out, false);
-}
-
 int path_planning::generateTrajectoryTree_AStar_flat_map_with_waypoints(const State& root_state, TreeFlat& out)
 {
     return generateTrajectoryTreeImpl(root_state, out, true);

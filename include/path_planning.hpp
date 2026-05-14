@@ -5,10 +5,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <geometry_msgs/msg/point.hpp>
-#include <std_msgs/msg/float64.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
-#include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/bool.hpp>
 
 // path nav msgs
 #include <nav_msgs/msg/path.hpp>
@@ -19,13 +16,8 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-// Custom msgs path_planning_dynamic for Obstacle and ObstacleCollection
-#include "path_planning_dynamic/msg/obstacle.hpp"
+// Custom msgs path_planning_dynamic for ObstacleCollection
 #include "path_planning_dynamic/msg/obstacle_collection.hpp"
-
-// Custom msgs path_planning_dynamic for RoadElements and RoadElementsCollection
-#include "path_planning_dynamic/msg/road_elements.hpp"
-#include "path_planning_dynamic/msg/road_elements_collection.hpp"
 
 // Kinematics and vehicle geometry
 #include "kinematic_models.hpp"
@@ -41,12 +33,14 @@
 #include "GlobalPlanner.hpp"
 
 // C++
-#include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <queue>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -124,8 +118,6 @@ private:
     std::string green = "\033[1;32m";
     std::string red = "\033[1;31m";
     std::string blue = "\033[1;34m";
-    std::string yellow = "\033[1;33m";
-    std::string purple = "\033[1;35m";
     std::string reset = "\033[0m";
 
     // tf2 buffer & listener
@@ -239,7 +231,6 @@ private:
     void publishTrajectoryPath(const TreeFlat& flat, int leaf_idx);
 
     // generate the trajectory based on the flat tree on the A* algorithm
-    int generateTrajectoryTree_AStar_flat_map(const State& root_state, TreeFlat& out);
     int generateTrajectoryTree_AStar_flat_map_with_waypoints(const State& root_state, TreeFlat& out);
     int generateTrajectoryTreeImpl(const State& root_state, TreeFlat& out, bool use_waypoints);
 
