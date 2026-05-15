@@ -95,19 +95,6 @@ private:
   void createGeometry();
 
   /**
-   * @brief Transform a local target state into the reference state frame.
-   *
-   * Applies a 2D rotation by reference.heading and translation by reference.x/reference.y.
-   *
-   * @param reference World-frame reference pose.
-   * @param target Local-frame target pose.
-   * @return Target pose expressed in the reference frame.
-   * @note z is not propagated by this helper.
-   */
-  [[nodiscard]] State localToGlobal(const State &reference,
-                                    const State &target) const;
-
-  /**
    * @brief Build the circle approximation of the vehicle footprint.
    *
    * Creates four small footprint circles and one bounding circle from the configured dimensions.

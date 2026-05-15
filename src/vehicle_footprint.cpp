@@ -62,16 +62,6 @@ Circle VehicleFootprint::getBoundingCircle(const State &state) const {
   return Circle(x, y, bounding_circle_.r);
 }
 
-State VehicleFootprint::localToGlobal(const State &reference,
-                                      const State &target) const {
-  const double x = target.x * std::cos(reference.heading) -
-                   target.y * std::sin(reference.heading) + reference.x;
-  const double y = target.x * std::sin(reference.heading) +
-                   target.y * std::cos(reference.heading) + reference.y;
-  const double heading = reference.heading + target.heading;
-  return {x, y, heading};
-}
-
 visualization_msgs::msg::MarkerArray
 VehicleFootprint::toMarkerArray(const std::string &frame_id,
                                 const rclcpp::Time &stamp) const {
