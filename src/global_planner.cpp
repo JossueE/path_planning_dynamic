@@ -1,4 +1,4 @@
-#include "GlobalPlanner.hpp"
+#include "global_planner.hpp"
 #include <queue>
 #include <algorithm>
 

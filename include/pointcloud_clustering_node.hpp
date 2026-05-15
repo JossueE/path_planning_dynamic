@@ -1,5 +1,5 @@
-#ifndef POINTCLOUD_CLUSTERING_NODE_H
-#define POINTCLOUD_CLUSTERING_NODE_H
+#ifndef POINTCLOUD_CLUSTERING_NODE_HPP
+#define POINTCLOUD_CLUSTERING_NODE_HPP
 // RORS2
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -64,4 +64,4 @@ public:
     ~pointcloud_clustering_node();
 };
 
-#endif // POINTCLOUD_CLUSTERING_NODE_H
+#endif // POINTCLOUD_CLUSTERING_NODE_HPP

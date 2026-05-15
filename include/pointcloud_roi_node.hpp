@@ -1,5 +1,5 @@
-#ifndef POINTCLOUD_ROI_NODE_H
-#define POINTCLOUD_ROI_NODE_H
+#ifndef POINTCLOUD_ROI_NODE_HPP
+#define POINTCLOUD_ROI_NODE_HPP
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -100,4 +100,4 @@ public:
     ~pointcloud_roi_node();
 };
 
-#endif // POINTCLOUD_ROI_NODE_H
+#endif // POINTCLOUD_ROI_NODE_HPP

@@ -1,6 +1,5 @@
 
-#ifndef STATE_H
-#define STATE_H
+#pragma once
 
 class State
 {
@@ -29,4 +28,3 @@ struct Circle
     double r{};
 };
 
-#endif // STATE_H

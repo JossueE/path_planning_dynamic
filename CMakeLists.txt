@@ -47,8 +47,8 @@ find_package(lanelet2_validation)
 add_executable(path_planning_node
                 src/path_planning.cpp
                 src/kinematic_models.cpp
-                src/Grid_map.cpp
-                src/GlobalPlanner.cpp
+                src/grid_map.cpp
+                src/global_planner.cpp
                 src/vehicle_footprint.cpp
                )
 

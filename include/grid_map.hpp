@@ -1,5 +1,5 @@
-#ifndef GRID_MAP_H
-#define GRID_MAP_H
+#ifndef GRID_MAP_HPP
+#define GRID_MAP_HPP
 
 #include <grid_map_core/grid_map_core.hpp>
 #include <opencv2/opencv.hpp>
@@ -11,7 +11,7 @@
 #include <opencv2/core/eigen.hpp>
 
 #include <nav_msgs/msg/occupancy_grid.hpp>
-#include "State.h"
+#include "state.hpp"
 #include <vector>
 #include <iostream>
 #include <tuple>
@@ -47,4 +47,4 @@ public:
     std::tuple<int, int> toCellID(State start_state);
 };
 
-#endif // GRID_MAP_H
+#endif // GRID_MAP_HPP

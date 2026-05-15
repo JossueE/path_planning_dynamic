@@ -1,4 +1,4 @@
-#include "Grid_map.h"
+#include "grid_map.hpp"
 
 Grid_map::Grid_map(const nav_msgs::msg::OccupancyGrid &map_data)
 {

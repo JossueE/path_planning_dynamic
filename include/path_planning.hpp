@@ -24,13 +24,13 @@
 #include "vehicle_footprint.hpp"
 
 // State
-#include "State.h"
+#include "state.hpp"
 
 // Grid map
-#include "Grid_map.h"
+#include "grid_map.hpp"
 
 // Global Planner
-#include "GlobalPlanner.hpp"
+#include "global_planner.hpp"
 
 // C++
 #include <algorithm>

@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "State.h"
+#include "state.hpp"
 
 struct MotionPrimitive {
   double linear_step{0.0};

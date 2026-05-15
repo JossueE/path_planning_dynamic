@@ -1,4 +1,4 @@
-#include "pointcloud_clustering_node.h"
+#include "pointcloud_clustering_node.hpp"
 
 #include <algorithm>
 #include <cctype>
