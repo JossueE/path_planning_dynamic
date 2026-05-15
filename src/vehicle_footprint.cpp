@@ -40,17 +40,26 @@ void VehicleFootprint::createGeometry() {
 std::vector<Circle> VehicleFootprint::getCircles(const State &state) const {
   std::vector<Circle> result;
   result.reserve(circles_.size());
+  const double cos_heading = std::cos(state.heading);
+  const double sin_heading = std::sin(state.heading);
   for (const auto &circle : circles_) {
-    auto global_state = localToGlobal(state, State(circle.x, circle.y));
-    result.emplace_back(global_state.x, global_state.y, circle.r);
+    const double x =
+        circle.x * cos_heading - circle.y * sin_heading + state.x;
+    const double y =
+        circle.x * sin_heading + circle.y * cos_heading + state.y;
+    result.emplace_back(x, y, circle.r);
   }
   return result;
 }
 
 Circle VehicleFootprint::getBoundingCircle(const State &state) const {
-  auto global_center =
-      localToGlobal(state, State(bounding_circle_.x, bounding_circle_.y));
-  return Circle(global_center.x, global_center.y, bounding_circle_.r);
+  const double cos_heading = std::cos(state.heading);
+  const double sin_heading = std::sin(state.heading);
+  const double x = bounding_circle_.x * cos_heading -
+                   bounding_circle_.y * sin_heading + state.x;
+  const double y = bounding_circle_.x * sin_heading +
+                   bounding_circle_.y * cos_heading + state.y;
+  return Circle(x, y, bounding_circle_.r);
 }
 
 State VehicleFootprint::localToGlobal(const State &reference,
@@ -96,13 +105,12 @@ VehicleFootprint::toMarkerArray(const std::string &frame_id,
 void VehicleFootprint::setCircles() {
   const double small_circle_shift = width_ / 4.0;
   const double small_circle_radius =
-      std::sqrt(2.0 * std::pow(small_circle_shift, 2));
+      std::hypot(small_circle_shift, small_circle_shift);
 
   bounding_circle_.x = (axle_to_front_ - axle_to_back_) / 2.0;
   bounding_circle_.y = 0.0;
-  bounding_circle_.r =
-      std::sqrt(std::pow((axle_to_front_ + axle_to_back_) / 2.0, 2) +
-                std::pow(width_ / 2.0, 2));
+  bounding_circle_.r = std::hypot((axle_to_front_ + axle_to_back_) / 2.0,
+                                  width_ / 2.0);
 
   circles_.emplace_back(-axle_to_back_ + small_circle_shift, width_ / 2.0,
                         small_circle_radius);

@@ -5,6 +5,7 @@ class State
 {
 
 public:
+
     State() = default;
     State(double x_, double y_, double heading_ = 0)
         : x(x_), y(y_), heading(heading_), gridx(0), gridy(0), gheading(0) {}
